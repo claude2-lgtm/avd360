@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Designações | {{ cycle.name }}{% endblock %}
+{% block page_title %}Designações de Avaliação{% endblock %}
+{% block breadcrumb %}<a href="/cycles">Ciclos</a> / {{ cycle.name }}{% endblock %}
+
+{% block topbar_actions %}
+<form method="POST" action="/cycles/{{ cycle.id }}/assignments/auto" style="display:inline">
+  <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Gerar designações automáticas? Isso substituirá todas as designações atuais.')">
+    Gerar automático
+  </button>
+</form>
+{% if cycle.status.value == 'draft' %}
+<form method="POST" action="/cycles/{{ cycle.id }}/activate" style="display:inline">
+  <button type="submit" class="btn btn-success btn-sm">Ativar ciclo</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="alert alert-info">
+  <strong>Regra automática:</strong> Projetos (Consultor/Coordenador) = manual. Outros departamentos = todos avaliam todos do mesmo departamento. Autoavaliação gerada para todos.
+</div>
+
+<div class="grid-2" style="gap:20px;align-items:start">
+
+  <!-- Add assignment form -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">Adicionar designação manualmente</div>
+    <form method="POST" action="/cycles/{{ cycle.id }}/assignments/add">
+      <div class="form-group">
+        <label class="form-label required">Avaliador</label>
+        <select name="evaluator_id" class="form-control" required>
+          <option value="">Selecione...</option>
+          {% for u in users %}
+          <option value="{{ u.id }}">{{ u.name }} ({{ u.position }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Avaliado</label>
+        <select name="evaluatee_id" class="form-control" required>
+          <option value="">Selecione...</option>
+          {% for u in users %}
+          <option value="{{ u.id }}">{{ u.name }} ({{ u.position }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Adicionar</button>
+    </form>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">Resumo das designações</div>
+    <div class="stats-grid" style="grid-template-columns:1fr 1fr">
+      <div class="stat-card">
+        <div class="stat-label">Total</div>
+        <div class="stat-value">{{ matrix.values()|map('length')|sum }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avaliadores</div>
+        <div class="stat-value">{{ matrix|length }}</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--text3)">
+      <p>Use "Gerar automático" para criar designações padrão (não-Projetos) e depois ajuste manualmente conforme necessário.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Matrix -->
+<div class="card mt-24" style="margin-top:24px">
+  <div class="card-header">
+    <div class="card-title">Matriz de designações</div>
+    <div class="card-subtitle">Quem avalia quem</div>
+  </div>
+
+  {% if matrix %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Avaliador</th>
+          <th>Avaliado</th>
+          <th>Tipo</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for evaluator_id, evaluatee_ids in matrix.items() %}
+        {% set evaluator = users|selectattr('id','eq',evaluator_id)|first %}
+        {% for evaluatee_id in evaluatee_ids %}
+        {% set evaluatee = users|selectattr('id','eq',evaluatee_id)|first %}
+        {% if evaluator and evaluatee %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600">
+                {{ evaluator.name[:2].upper() }}
+              </div>
+              <span>{{ evaluator.name }}</span>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text2)">
+                {{ evaluatee.name[:2].upper() }}
+              </div>
+              <span>{{ evaluatee.name }}</span>
+            </div>
+          </td>
+          <td>
+            {% if evaluator_id == evaluatee_id %}
+            <span class="badge badge-purple">Autoavaliação</span>
+            {% else %}
+            <span class="badge badge-gray">Par / Superior</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if evaluator_id != evaluatee_id %}
+            <form method="POST" action="/cycles/{{ cycle.id }}/assignments/remove" style="display:inline">
+              <input type="hidden" name="evaluator_id" value="{{ evaluator_id }}">
+              <input type="hidden" name="evaluatee_id" value="{{ evaluatee_id }}">
+              <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+            </form>
+            {% else %}
+            <span class="text-muted" style="font-size:12px">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>Nenhuma designação. Use "Gerar automático" ou adicione manualmente.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

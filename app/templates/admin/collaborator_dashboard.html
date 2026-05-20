@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Minhas Avaliações | AVD 360°{% endblock %}
+{% block page_title %}Minhas Avaliações{% endblock %}
+{% block breadcrumb %}Ciclo ativo{% endblock %}
+
+{% block content %}
+{% if active_cycle %}
+
+<div class="stats-grid">
+  <div class="stat-card accent">
+    <div class="stat-label">Total de Avaliações</div>
+    <div class="stat-value">{{ progress.total }}</div>
+    <div class="stat-sub">atribuídas a você</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Concluídas</div>
+    <div class="stat-value" style="color:var(--green)">{{ progress.submitted }}</div>
+    <div class="stat-sub">enviadas</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Pendentes</div>
+    <div class="stat-value" style="color:{% if progress.pending > 0 %}var(--amber){% else %}var(--green){% endif %}">{{ progress.pending }}</div>
+    <div class="stat-sub">para preencher</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Progresso</div>
+    <div class="stat-value">{{ progress.pct }}%</div>
+    <div class="stat-sub" style="margin-top:8px">
+      <div class="progress-bar">
+        <div class="progress-fill {% if progress.pct == 100 %}green{% endif %}" style="width:{{ progress.pct }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cycle info -->
+<div class="alert alert-info" style="margin-bottom:20px">
+  <strong>Ciclo ativo:</strong> {{ active_cycle.name }}
+  {% if active_cycle.end_date %}
+  — Prazo: <strong>{{ active_cycle.end_date.strftime('%d/%m/%Y') }}</strong>
+  {% endif %}
+</div>
+
+{% if progress.pending == 0 and progress.total > 0 %}
+<div class="alert alert-success">✓ Você concluiu todas as avaliações deste ciclo. Obrigado!</div>
+{% endif %}
+
+<!-- Evaluations list -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Lista de Avaliações</div>
+    <div class="card-subtitle">{{ my_evaluations|length }} avaliação(ões) atribuída(s)</div>
+  </div>
+
+  {% if my_evaluations %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Colaborador a avaliar</th>
+          <th>Departamento / Cargo</th>
+          <th>Status</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ev in my_evaluations %}
+        <tr>
+          <td>
+            {% if ev.is_self_evaluation %}
+            <span class="badge badge-purple">Autoavaliação</span>
+            {% else %}
+            <span class="badge badge-gray">Par / Superior</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">
+                {{ ev.evaluatee.name[:2].upper() }}
+              </div>
+              <span style="font-weight:500">{{ ev.evaluatee.name }}</span>
+            </div>
+          </td>
+          <td class="text-muted">{{ ev.evaluatee.department }} / {{ ev.evaluatee.position }}</td>
+          <td>
+            {% if ev.status.value == 'submitted' %}
+            <span class="badge badge-green">✓ Concluído</span>
+            {% elif ev.status.value == 'in_progress' %}
+            <span class="badge badge-amber">Em andamento</span>
+            {% else %}
+            <span class="badge badge-gray">Pendente</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if ev.status.value == 'submitted' %}
+            <a href="/evaluations/{{ ev.id }}/view" class="btn btn-outline btn-sm">Ver resposta</a>
+            {% else %}
+            <a href="/evaluations/{{ ev.id }}" class="btn btn-primary btn-sm">
+              {% if ev.status.value == 'in_progress' %}Continuar{% else %}Iniciar{% endif %}
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>Você não possui avaliações atribuídas neste ciclo.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state" style="padding:80px 24px">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 16px;display:block;opacity:0.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <p style="font-size:16px;font-weight:500;margin-bottom:8px">Nenhum ciclo ativo</p>
+    <p style="font-size:14px">Aguarde o administrador ativar um ciclo de avaliação.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

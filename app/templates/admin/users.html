@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Colaboradores | AVD 360°{% endblock %}
+{% block page_title %}Colaboradores{% endblock %}
+{% block breadcrumb %}Gestão de usuários{% endblock %}
+
+{% block topbar_actions %}
+<button onclick="document.getElementById('modal-create').classList.add('open')" class="btn btn-primary btn-sm">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Novo Colaborador
+</button>
+{% endblock %}
+
+{% block content %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-title">{{ users|length }} colaboradores cadastrados</div>
+    </div>
+    <input type="text" placeholder="Buscar..." id="search-input" class="form-control" style="width:220px" oninput="filterTable(this.value)">
+  </div>
+
+  <div class="table-wrap">
+    <table id="users-table">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>E-mail</th>
+          <th>Departamento</th>
+          <th>Cargo</th>
+          <th>Superior direto</th>
+          <th>Perfil</th>
+          <th>Senha temp.</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:30px;height:30px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">
+                {{ u.name[:2].upper() }}
+              </div>
+              <span style="font-weight:500">{{ u.name }}</span>
+            </div>
+          </td>
+          <td class="text-muted">{{ u.email }}</td>
+          <td>{{ u.department or '—' }}</td>
+          <td style="font-size:12px">{{ u.position or '—' }}</td>
+          <td class="text-muted" style="font-size:12px">{{ u.manager.name if u.manager else '—' }}</td>
+          <td>
+            {% if u.role.value == 'admin' %}
+            <span class="badge badge-purple">Admin</span>
+            {% else %}
+            <span class="badge badge-gray">Colaborador</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.temp_password %}
+            <code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px">{{ u.temp_password }}</code>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="/users/{{ u.id }}/edit" class="btn btn-outline btn-sm">Editar</a>
+              <form method="POST" action="/users/{{ u.id }}/delete" onsubmit="return confirm('Remover {{ u.name }}?')">
+                <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Create Modal -->
+<div class="modal-backdrop" id="modal-create">
+  <div class="modal" style="max-width:560px">
+    <div class="flex-between mb-16">
+      <div class="modal-title">Novo Colaborador</div>
+      <button onclick="document.getElementById('modal-create').classList.remove('open')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3)">×</button>
+    </div>
+    <form method="POST" action="/users/create">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label required">Nome completo</label>
+          <input type="text" name="name" class="form-control" required placeholder="Ex: João Silva">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">E-mail</label>
+          <input type="email" name="email" class="form-control" required placeholder="joao@grupogestao.com.br">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label required">Departamento</label>
+          <select name="department" class="form-control" required>
+            <option value="">Selecione...</option>
+            {% for d in departments %}
+            <option value="{{ d }}">{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Cargo</label>
+          <select name="position" class="form-control" required>
+            <option value="">Selecione...</option>
+            {% for p in positions %}
+            <option value="{{ p }}">{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Superior direto</label>
+          <select name="manager_id" class="form-control">
+            <option value="">Nenhum</option>
+            {% for u in all_users %}
+            <option value="{{ u.id }}">{{ u.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Perfil de acesso</label>
+          <select name="role" class="form-control">
+            <option value="collaborator">Colaborador</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+      </div>
+      <div class="alert alert-info" style="font-size:12px">
+        Uma senha temporária será gerada automaticamente e exibida na listagem.
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="document.getElementById('modal-create').classList.remove('open')" class="btn btn-outline">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Criar colaborador</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterTable(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('#users-table tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

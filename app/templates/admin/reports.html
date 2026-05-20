@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Relatórios | {{ cycle.name }}{% endblock %}
+{% block page_title %}Relatórios do Ciclo{% endblock %}
+{% block breadcrumb %}<a href="/cycles">Ciclos</a> / {{ cycle.name }}{% endblock %}
+
+{% block content %}
+<div class="card mb-16" style="margin-bottom:20px;border-left:3px solid var(--purple)">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:16px;font-weight:600">{{ cycle.name }}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">
+        {% if cycle.status.value == 'active' %}<span class="badge badge-green">Ativo</span>
+        {% else %}<span class="badge badge-gray">Encerrado</span>{% endif %}
+        {% if cycle.end_date %}&nbsp;· Prazo: {{ cycle.end_date.strftime('%d/%m/%Y') }}{% endif %}
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text2)">{{ users_data|length }} colaboradores avaliados</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Relatórios Individuais</div>
+    <div class="card-subtitle">Acesse o relatório completo ou faça download em PDF</div>
+  </div>
+
+  {% if users_data %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Colaborador</th>
+          <th>Cargo / Departamento</th>
+          <th>Avaliações recebidas</th>
+          <th>Média geral</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in users_data %}
+        {% set u = item.user %}
+        {% set summary = item.summary %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">
+                {{ u.name[:2].upper() }}
+              </div>
+              <span style="font-weight:500">{{ u.name }}</span>
+            </div>
+          </td>
+          <td>
+            <div style="font-size:13px">{{ u.position }}</div>
+            <div style="font-size:11px;color:var(--text3)">{{ u.department }}</div>
+          </td>
+          <td>
+            <div style="display:flex;gap:12px;font-size:12px">
+              <span title="Pares">👥 {{ summary.peers.count }}</span>
+              <span title="Superiores">⬆ {{ summary.managers.count }}</span>
+              <span title="Auto">🪞 {{ summary.self.count }}</span>
+            </div>
+          </td>
+          <td>
+            {% if summary.overall.avg %}
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px;font-weight:600;color:
+                {% if summary.overall.avg >= 4 %}var(--green)
+                {% elif summary.overall.avg >= 3 %}var(--amber)
+                {% else %}var(--red){% endif %}">
+                {{ "%.2f"|format(summary.overall.avg) }}
+              </span>
+              <span style="font-size:12px;color:var(--text3)">/ 5.00</span>
+            </div>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="/evaluations/reports/{{ cycle.id }}/{{ u.id }}" class="btn btn-outline btn-sm">Ver</a>
+              <a href="/evaluations/reports/{{ cycle.id }}/{{ u.id }}/pdf" class="btn btn-primary btn-sm" target="_blank">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                PDF
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>Nenhuma avaliação submetida neste ciclo ainda.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

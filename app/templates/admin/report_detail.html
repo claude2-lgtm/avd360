@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Relatório — {{ data.user.name }}{% endblock %}
+{% block page_title %}Relatório Individual{% endblock %}
+{% block breadcrumb %}<a href="/evaluations/reports/cycle/{{ cycle_id }}">Relatórios</a> / {{ data.user.name }}{% endblock %}
+
+{% block topbar_actions %}
+<a href="/evaluations/reports/{{ cycle_id }}/{{ user_id }}/pdf" class="btn btn-primary btn-sm" target="_blank">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  Exportar PDF
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Employee header -->
+<div class="card mb-16" style="margin-bottom:20px;background:linear-gradient(135deg,var(--purple-dark),var(--purple));color:#fff;border:none">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff">
+      {{ data.user.name[:2].upper() }}
+    </div>
+    <div style="flex:1">
+      <div style="font-size:20px;font-weight:700">{{ data.user.name }}</div>
+      <div style="font-size:13px;opacity:0.8;margin-top:2px">{{ data.user.position }} · {{ data.user.department }}</div>
+      <div style="font-size:12px;opacity:0.6;margin-top:2px">Ciclo: {{ data.cycle.name if data.cycle else '—' }}</div>
+    </div>
+    {% if data.summary.overall.avg %}
+    <div style="text-align:right">
+      <div style="font-size:40px;font-weight:700;line-height:1">{{ "%.2f"|format(data.summary.overall.avg) }}</div>
+      <div style="font-size:12px;opacity:0.7">média geral</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="stats-grid" style="margin-bottom:24px">
+  {% for label, key in [('Autoavaliação','self'),('Avaliação de Pares','peers'),('Avaliação de Superiores','managers'),('Média Geral','overall')] %}
+  {% set s = data.summary[key] %}
+  <div class="stat-card {% if key == 'overall' %}accent{% endif %}">
+    <div class="stat-label">{{ label }}</div>
+    <div class="stat-value" style="color:{% if s.avg and s.avg >= 4 %}var(--green){% elif s.avg and s.avg >= 3 %}var(--amber){% elif s.avg %}var(--red){% else %}var(--text3){% endif %}">
+      {% if s.avg %}{{ "%.2f"|format(s.avg) }}{% else %}—{% endif %}
+    </div>
+    <div class="stat-sub">{{ s.count }} avaliação(ões)</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Competencies breakdown -->
+{% if data.comp_scores %}
+<div class="card mb-16" style="margin-bottom:20px">
+  <div class="card-title" style="margin-bottom:16px">Desempenho por Competência</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Grupo</th>
+          <th>Competência</th>
+          <th style="text-align:center">Auto</th>
+          <th style="text-align:center">Pares</th>
+          <th style="text-align:center">Média</th>
+          <th>Barra</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set current_group = namespace(name='') %}
+        {% for s in data.comp_scores %}
+        <tr>
+          <td style="font-size:11px;color:var(--text3);font-weight:500">
+            {% if s.group != current_group.name %}
+            {{ s.group }}
+            {% set current_group.name = s.group %}
+            {% endif %}
+          </td>
+          <td style="font-weight:500;font-size:13px">{{ s.name }}</td>
+          <td style="text-align:center;font-size:13px">
+            {% if s.self %}<span style="color:var(--purple-mid)">{{ "%.1f"|format(s.self) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td style="text-align:center;font-size:13px">
+            {% if s.peers %}{{ "%.1f"|format(s.peers) }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td style="text-align:center;font-size:14px;font-weight:600;color:
+            {% if s.avg and s.avg >= 4 %}var(--green){% elif s.avg and s.avg >= 3 %}var(--amber){% elif s.avg %}var(--red){% else %}var(--text3){% endif %}">
+            {% if s.avg %}{{ "%.2f"|format(s.avg) }}{% else %}—{% endif %}
+          </td>
+          <td style="min-width:120px">
+            {% if s.avg %}
+            <div class="progress-bar">
+              <div style="height:6px;background:{% if s.avg >= 4 %}var(--green){% elif s.avg >= 3 %}var(--amber){% else %}var(--red){% endif %};border-radius:10px;width:{{ (s.avg/5*100)|int }}%"></div>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Comments -->
+{% if data.evaluations %}
+<div class="card">
+  <div class="card-title" style="margin-bottom:16px">Comentários e Observações</div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    {% for ev in data.evaluations %}
+    {% if ev.answers or ev.general_observations %}
+    <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+      <div style="background:var(--purple-light);padding:10px 16px;display:flex;align-items:center;gap:8px">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">
+          {{ ev.evaluator_name[:2].upper() }}
+        </div>
+        <div>
+          <span style="font-size:13px;font-weight:600;color:var(--purple-dark)">{{ ev.evaluator_name }}</span>
+          <span class="badge badge-purple" style="margin-left:8px;font-size:10px">{{ ev.relationship }}</span>
+        </div>
+      </div>
+      <div style="padding:14px 16px">
+        {% for ans in ev.answers %}
+        <div style="margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:3px">{{ ans.competency }}</div>
+          <div style="font-size:13px;color:var(--text)">{{ ans.comment }}</div>
+        </div>
+        {% endfor %}
+        {% if ev.general_observations %}
+        <div style="background:var(--surface2);border-left:3px solid var(--purple);padding:10px 12px;border-radius:0 6px 6px 0;margin-top:8px">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px">OBSERVAÇÕES GERAIS</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.6">{{ ev.general_observations }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

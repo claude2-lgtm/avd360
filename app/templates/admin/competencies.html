@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Competências | AVD 360°{% endblock %}
+{% block page_title %}Competências{% endblock %}
+{% block breadcrumb %}Gestão de competências por cargo{% endblock %}
+
+{% block topbar_actions %}
+<button onclick="document.getElementById('modal-group').classList.add('open')" class="btn btn-primary btn-sm">
+  + Novo grupo
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info" style="margin-bottom:20px">
+  As competências são agrupadas por cargo. Cada grupo pode ser atribuído a um ou mais cargos. Mudanças aqui afetam novos ciclos.
+</div>
+
+{% for group in groups %}
+{% set positions_list = group.target_positions | fromjson if group.target_positions else [] %}
+<div class="card" style="margin-bottom:16px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px">
+    <div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:4px">{{ group.name }}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        {% for p in positions_list %}
+        <span class="badge badge-purple" style="font-size:10px">{{ p }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button onclick="toggleEdit('group-{{ group.id }}')" class="btn btn-outline btn-sm">Editar grupo</button>
+      <button onclick="toggleAdd('add-{{ group.id }}')" class="btn btn-outline btn-sm">+ Competência</button>
+      <form method="POST" action="/competencies/groups/{{ group.id }}/delete" onsubmit="return confirm('Excluir grupo e competências?')">
+        <button type="submit" class="btn btn-danger btn-sm">Excluir</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit group form (hidden) -->
+  <div id="group-{{ group.id }}" style="display:none;background:var(--surface2);padding:16px;border-radius:var(--radius-sm);margin-bottom:12px">
+    <form method="POST" action="/competencies/groups/{{ group.id }}/edit">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nome do grupo</label>
+          <input type="text" name="name" class="form-control" value="{{ group.name }}" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cargos vinculados</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px">
+          {% for p in positions %}
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" name="target_positions" value="{{ p }}"
+                   {% if p in positions_list %}checked{% endif %}>
+            {{ p }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Salvar grupo</button>
+    </form>
+  </div>
+
+  <!-- Competencies list -->
+  <div style="display:flex;flex-direction:column;gap:6px">
+    {% for comp in group.competencies %}
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">{{ comp.name }} <span style="font-weight:400;color:var(--text3);font-size:11px">(peso {{ comp.weight|int }})</span></div>
+          {% if comp.description %}
+          <div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5">{{ comp.description[:180] }}{% if comp.description|length > 180 %}...{% endif %}</div>
+          {% endif %}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button onclick="toggleEdit('comp-{{ comp.id }}')" class="btn btn-outline btn-sm">Editar</button>
+          <form method="POST" action="/competencies/{{ comp.id }}/delete">
+            <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Edit competency form (hidden) -->
+      <div id="comp-{{ comp.id }}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <form method="POST" action="/competencies/{{ comp.id }}/edit">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nome</label>
+              <input type="text" name="name" class="form-control" value="{{ comp.name }}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Peso</label>
+              <input type="number" name="weight" class="form-control" value="{{ comp.weight }}" min="0.1" max="5" step="0.1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descrição</label>
+            <textarea name="description" class="form-control" rows="3">{{ comp.description or '' }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Add competency form (hidden) -->
+  <div id="add-{{ group.id }}" style="display:none;margin-top:12px;background:var(--surface2);padding:16px;border-radius:var(--radius-sm)">
+    <div style="font-size:13px;font-weight:500;margin-bottom:12px">Nova competência em "{{ group.name }}"</div>
+    <form method="POST" action="/competencies/create">
+      <input type="hidden" name="group_id" value="{{ group.id }}">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label required">Nome</label>
+          <input type="text" name="name" class="form-control" required placeholder="Ex: Gestão do tempo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Peso</label>
+          <input type="number" name="weight" class="form-control" value="1" min="0.1" max="5" step="0.1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição / critérios de avaliação</label>
+        <textarea name="description" class="form-control" rows="3" placeholder="Detalhe os critérios..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Criar competência</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Create group modal -->
+<div class="modal-backdrop" id="modal-group">
+  <div class="modal" style="max-width:560px">
+    <div class="flex-between mb-16">
+      <div class="modal-title">Novo Grupo de Competências</div>
+      <button onclick="document.getElementById('modal-group').classList.remove('open')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3)">×</button>
+    </div>
+    <form method="POST" action="/competencies/groups/create">
+      <div class="form-group">
+        <label class="form-label required">Nome do grupo</label>
+        <input type="text" name="name" class="form-control" required placeholder="Ex: Liderança">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cargos que verão este grupo</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px">
+          {% for p in positions %}
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" name="target_positions" value="{{ p }}"> {{ p }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="document.getElementById('modal-group').classList.remove('open')" class="btn btn-outline">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Criar grupo</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleEdit(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function toggleAdd(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

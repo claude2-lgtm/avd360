@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Ciclos | AVD 360°{% endblock %}
+{% block page_title %}Ciclos de Avaliação{% endblock %}
+{% block breadcrumb %}Gestão de ciclos{% endblock %}
+
+{% block topbar_actions %}
+<button onclick="document.getElementById('modal-create').classList.add('open')" class="btn btn-primary btn-sm">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Novo Ciclo
+</button>
+{% endblock %}
+
+{% block content %}
+
+{% if cycle_data %}
+<div style="display:flex;flex-direction:column;gap:16px">
+  {% for item in cycle_data %}
+  {% set c = item.cycle %}
+  {% set prog = item.progress %}
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span style="font-size:16px;font-weight:600">{{ c.name }}</span>
+          {% if c.status.value == 'active' %}<span class="badge badge-green">Ativo</span>
+          {% elif c.status.value == 'draft' %}<span class="badge badge-amber">Rascunho</span>
+          {% else %}<span class="badge badge-gray">Encerrado</span>{% endif %}
+        </div>
+        {% if c.description %}
+        <p style="font-size:13px;color:var(--text2);margin-bottom:8px">{{ c.description }}</p>
+        {% endif %}
+        <div style="display:flex;gap:24px;font-size:12px;color:var(--text3)">
+          {% if c.start_date %}<span>Início: {{ c.start_date.strftime('%d/%m/%Y') }}</span>{% endif %}
+          {% if c.end_date %}<span>Encerramento: {{ c.end_date.strftime('%d/%m/%Y') }}</span>{% endif %}
+          <span>Criado em {{ c.created_at.strftime('%d/%m/%Y') }}</span>
+        </div>
+
+        {% if prog.total > 0 %}
+        <div style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px">
+            <span>{{ prog.submitted }} de {{ prog.total }} avaliações concluídas</span>
+            <span>{{ prog.pct }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill {% if prog.pct == 100 %}green{% endif %}" style="width:{{ prog.pct }}%"></div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+        <a href="/cycles/{{ c.id }}/assignments" class="btn btn-outline btn-sm">Designações</a>
+        {% if c.status.value != 'active' and c.status.value != 'closed' %}
+        <form method="POST" action="/cycles/{{ c.id }}/activate">
+          <button type="submit" class="btn btn-success btn-sm" style="width:100%">Ativar</button>
+        </form>
+        {% endif %}
+        {% if c.status.value == 'active' %}
+        <form method="POST" action="/cycles/{{ c.id }}/close" onsubmit="return confirm('Encerrar ciclo?')">
+          <button type="submit" class="btn btn-outline btn-sm" style="width:100%">Encerrar</button>
+        </form>
+        <a href="/evaluations/reports/cycle/{{ c.id }}" class="btn btn-primary btn-sm">Relatórios</a>
+        {% endif %}
+        {% if c.status.value == 'closed' %}
+        <a href="/evaluations/reports/cycle/{{ c.id }}" class="btn btn-outline btn-sm">Relatórios</a>
+        {% endif %}
+        {% if c.status.value == 'draft' %}
+        <form method="POST" action="/cycles/{{ c.id }}/delete" onsubmit="return confirm('Excluir ciclo?')">
+          <button type="submit" class="btn btn-danger btn-sm" style="width:100%">Excluir</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <p style="font-size:15px;font-weight:500;margin-bottom:8px">Nenhum ciclo criado ainda</p>
+    <p style="margin-bottom:16px">Crie o primeiro ciclo de avaliação para começar.</p>
+    <button onclick="document.getElementById('modal-create').classList.add('open')" class="btn btn-primary">Criar ciclo</button>
+  </div>
+</div>
+{% endif %}
+
+<!-- Create Modal -->
+<div class="modal-backdrop" id="modal-create">
+  <div class="modal">
+    <div class="flex-between mb-16">
+      <div class="modal-title">Novo Ciclo de Avaliação</div>
+      <button onclick="document.getElementById('modal-create').classList.remove('open')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3)">×</button>
+    </div>
+    <form method="POST" action="/cycles/create">
+      <div class="form-group">
+        <label class="form-label required">Nome do ciclo</label>
+        <input type="text" name="name" class="form-control" required placeholder="Ex: AVD 360° — 1º Semestre 2025">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição (opcional)</label>
+        <textarea name="description" class="form-control" rows="2" placeholder="Contexto ou objetivo do ciclo..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data de início</label>
+          <input type="date" name="start_date" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de encerramento</label>
+          <input type="date" name="end_date" class="form-control">
+        </div>
+      </div>
+      <div class="alert alert-info" style="font-size:12px">
+        O ciclo será criado como <strong>rascunho</strong>. Configure as designações e ative quando estiver pronto.
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="document.getElementById('modal-create').classList.remove('open')" class="btn btn-outline">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Criar e configurar designações</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Editar Colaborador | AVD 360°{% endblock %}
+{% block page_title %}Editar Colaborador{% endblock %}
+{% block breadcrumb %}<a href="/users">Colaboradores</a> / {{ target_user.name }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:640px">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">
+        {{ target_user.name[:2].upper() }}
+      </div>
+      <div>
+        <div class="card-title">{{ target_user.name }}</div>
+        <div class="card-subtitle">{{ target_user.email }}</div>
+      </div>
+    </div>
+  </div>
+
+  <form method="POST" action="/users/{{ target_user.id }}/edit">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label required">Nome completo</label>
+        <input type="text" name="name" class="form-control" required value="{{ target_user.name }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">E-mail</label>
+        <input type="email" name="email" class="form-control" required value="{{ target_user.email }}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label required">Departamento</label>
+        <select name="department" class="form-control" required>
+          {% for d in departments %}
+          <option value="{{ d }}" {% if d == target_user.department %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Cargo</label>
+        <select name="position" class="form-control" required>
+          {% for p in positions %}
+          <option value="{{ p }}" {% if p == target_user.position %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Superior direto</label>
+        <select name="manager_id" class="form-control">
+          <option value="">Nenhum</option>
+          {% for u in all_users %}
+          <option value="{{ u.id }}" {% if target_user.manager_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Perfil de acesso</label>
+        <select name="role" class="form-control">
+          <option value="collaborator" {% if target_user.role.value == 'collaborator' %}selected{% endif %}>Colaborador</option>
+          <option value="admin" {% if target_user.role.value == 'admin' %}selected{% endif %}>Administrador</option>
+        </select>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="form-group">
+      <label class="form-label">Nova senha (deixe em branco para manter)</label>
+      <input type="password" name="new_password" class="form-control" placeholder="••••••••" autocomplete="new-password">
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button type="submit" class="btn btn-primary">Salvar alterações</button>
+      <a href="/users" class="btn btn-outline">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

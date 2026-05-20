@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | AVD 360°{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}Visão geral do sistema{% endblock %}
+
+{% block topbar_actions %}
+  {% if active_cycle %}
+  <a href="/evaluations/reports/cycle/{{ active_cycle.id }}" class="btn btn-outline btn-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Relatórios
+  </a>
+  {% endif %}
+  <a href="/cycles/create" class="btn btn-primary btn-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Novo Ciclo
+  </a>
+{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card accent">
+    <div class="stat-label">Colaboradores</div>
+    <div class="stat-value">{{ total_users }}</div>
+    <div class="stat-sub">usuários ativos</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Ciclos</div>
+    <div class="stat-value">{{ total_cycles }}</div>
+    <div class="stat-sub">total histórico</div>
+  </div>
+  {% if active_cycle and cycle_stats %}
+  <div class="stat-card">
+    <div class="stat-label">Avaliações Concluídas</div>
+    <div class="stat-value">{{ cycle_stats.submitted }}</div>
+    <div class="stat-sub">de {{ cycle_stats.total }} total</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Progresso do Ciclo</div>
+    <div class="stat-value">{{ cycle_stats.pct }}%</div>
+    <div class="stat-sub">{{ cycle_stats.pending }} pendentes</div>
+  </div>
+  {% else %}
+  <div class="stat-card">
+    <div class="stat-label">Ciclo Ativo</div>
+    <div class="stat-value" style="font-size:18px;color:#aaa">—</div>
+    <div class="stat-sub">nenhum ativo</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="grid-2" style="gap:24px">
+
+  <!-- Active cycle card -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Ciclo Atual</div>
+        <div class="card-subtitle">Status e progresso</div>
+      </div>
+      <a href="/cycles" class="btn btn-outline btn-sm">Ver todos</a>
+    </div>
+
+    {% if active_cycle %}
+    <div style="margin-bottom:16px">
+      <div class="flex-between mb-16" style="margin-bottom:8px">
+        <span style="font-weight:600;font-size:15px">{{ active_cycle.name }}</span>
+        <span class="badge badge-green">Ativo</span>
+      </div>
+      {% if active_cycle.end_date %}
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Prazo: {{ active_cycle.end_date.strftime('%d/%m/%Y') }}
+      </div>
+      {% endif %}
+      {% if cycle_stats %}
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px">
+        {{ cycle_stats.submitted }} de {{ cycle_stats.total }} avaliações concluídas
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill {% if cycle_stats.pct == 100 %}green{% elif cycle_stats.pct >= 50 %}{% else %}{% endif %}"
+             style="width:{{ cycle_stats.pct }}%"></div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:var(--text3);margin-top:4px">{{ cycle_stats.pct }}%</div>
+      {% endif %}
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <a href="/cycles/{{ active_cycle.id }}/assignments" class="btn btn-outline btn-sm">Gerenciar designações</a>
+        <a href="/evaluations/reports/cycle/{{ active_cycle.id }}" class="btn btn-primary btn-sm">Ver relatórios</a>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>Nenhum ciclo ativo no momento.</p>
+      <a href="/cycles" class="btn btn-primary btn-sm" style="margin-top:12px">Criar ciclo</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Pending by user -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Avaliações Pendentes</div>
+        <div class="card-subtitle">Por colaborador no ciclo ativo</div>
+      </div>
+    </div>
+
+    {% if users_pending %}
+    <div style="display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto">
+      {% for item in users_pending %}
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">
+          {{ item.user.name[:2].upper() }}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.user.name }}</div>
+          <div style="font-size:11px;color:var(--text3)">{{ item.user.position }}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:12px;color:var(--text2)">{{ item.progress.pending }} pendentes</div>
+          <div class="progress-bar" style="width:80px;margin-top:4px">
+            <div class="progress-fill" style="width:{{ item.progress.pct }}%"></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>{% if active_cycle %}Todos em dia! ✓{% else %}Nenhum ciclo ativo.{% endif %}</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Recent cycles -->
+{% if recent_cycles %}
+<div class="card mt-24" style="margin-top:24px">
+  <div class="card-header">
+    <div class="card-title">Ciclos Recentes</div>
+    <a href="/cycles" class="btn btn-outline btn-sm">Ver todos</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Status</th>
+          <th>Início</th>
+          <th>Encerramento</th>
+          <th>Criado por</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in recent_cycles %}
+        <tr>
+          <td style="font-weight:500">{{ c.name }}</td>
+          <td>
+            {% if c.status.value == 'active' %}<span class="badge badge-green">Ativo</span>
+            {% elif c.status.value == 'draft' %}<span class="badge badge-amber">Rascunho</span>
+            {% else %}<span class="badge badge-gray">Encerrado</span>{% endif %}
+          </td>
+          <td class="text-muted">{{ c.start_date.strftime('%d/%m/%Y') if c.start_date else '—' }}</td>
+          <td class="text-muted">{{ c.end_date.strftime('%d/%m/%Y') if c.end_date else '—' }}</td>
+          <td class="text-muted">{{ c.created_by.name if c.created_by else '—' }}</td>
+          <td>
+            <a href="/cycles/{{ c.id }}/assignments" class="btn btn-outline btn-sm">Gerenciar</a>
+            {% if c.status.value != 'draft' %}
+            <a href="/evaluations/reports/cycle/{{ c.id }}" class="btn btn-outline btn-sm">Relatórios</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

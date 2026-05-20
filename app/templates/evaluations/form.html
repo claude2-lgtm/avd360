@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Avaliação | AVD 360°{% endblock %}
+{% block page_title %}
+  {% if is_self %}Autoavaliação{% else %}Avaliar {{ evaluation.evaluatee.name }}{% endif %}
+{% endblock %}
+{% block breadcrumb %}
+  <a href="/dashboard">Avaliações</a> / {{ evaluation.cycle.name }}
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .competency-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+  .competency-card:focus-within { border-color: var(--purple); }
+  .competency-card .comp-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; font-family: 'Faustina', serif; font-style: italic; }
+  .competency-card .comp-desc { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 14px; }
+  .competency-card .comp-weight { font-size: 11px; color: var(--text3); }
+
+  .star-group { display: flex; flex-direction: row-reverse; gap: 6px; }
+  .star-group input[type=radio] { display: none; }
+  .star-group label {
+    font-size: 28px; cursor: pointer; color: #d1d5db;
+    transition: color 0.1s; line-height: 1;
+  }
+  .star-group label:hover,
+  .star-group label:hover ~ label { color: #f59e0b; }
+  .star-group input[type=radio]:checked ~ label { color: #f59e0b; }
+
+  .score-label {
+    font-size: 12px; color: var(--purple); font-weight: 500;
+    min-height: 18px; margin-top: 6px;
+  }
+  .group-header {
+    font-size: 11px; font-weight: 600; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 16px 0 8px; border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .sticky-bar {
+    position: sticky; bottom: 0; background: var(--surface);
+    border-top: 1px solid var(--border); padding: 16px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 0 -28px; z-index: 50;
+  }
+  .progress-text { font-size: 13px; color: var(--text2); }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+{% if request.query_params.get('saved') %}
+<div class="alert alert-success">✓ Rascunho salvo. Continue preenchendo.</div>
+{% endif %}
+
+<!-- Evaluatee info -->
+<div class="card mb-16" style="margin-bottom:16px;border-left:3px solid var(--purple)">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">
+      {{ evaluation.evaluatee.name[:2].upper() }}
+    </div>
+    <div>
+      <div style="font-size:15px;font-weight:600">
+        {% if is_self %}Autoavaliação — {{ evaluation.evaluatee.name }}
+        {% else %}Avaliando: {{ evaluation.evaluatee.name }}{% endif %}
+      </div>
+      <div style="font-size:12px;color:var(--text3)">{{ evaluation.evaluatee.position }} · {{ evaluation.evaluatee.department }}</div>
+    </div>
+    {% if is_self %}
+    <div style="margin-left:auto">
+      <span class="badge badge-purple">Autoavaliação</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="POST" action="/evaluations/{{ evaluation.id }}/submit" id="eval-form">
+
+  {% for group_name, competencies in groups.items() %}
+  <div class="group-header">{{ group_name }}</div>
+
+  {% for comp in competencies %}
+  {% set ans = existing.get(comp.id) %}
+  <div class="competency-card" id="comp-{{ comp.id }}">
+    <div class="comp-name">
+      {{ comp.name }}
+      <span class="comp-weight" style="font-weight:400">(Peso: {{ comp.weight|int }})</span>
+    </div>
+    {% if comp.description %}
+    <div class="comp-desc">{{ comp.description }}</div>
+    {% endif %}
+
+    <div style="display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">Avaliação <span style="color:var(--red)">*</span></div>
+        <div class="star-group" id="stars-{{ comp.id }}">
+          {% for s in [5,4,3,2,1] %}
+          <input type="radio" name="score_{{ comp.id }}" id="star-{{ comp.id }}-{{ s }}"
+                 value="{{ s }}"
+                 {% if ans and ans.score == s %}checked{% endif %}
+                 {% if form_data and form_data.get('score_' ~ comp.id)|string == s|string %}checked{% endif %}
+                 onchange="updateLabel({{ comp.id }}, {{ s }})">
+          <label for="star-{{ comp.id }}-{{ s }}" title="{{ score_labels[s] }}">★</label>
+          {% endfor %}
+        </div>
+        <div class="score-label" id="label-{{ comp.id }}">
+          {% if ans and ans.score %}{{ score_labels[ans.score|int] }}{% endif %}
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">Comentário (opcional)</div>
+        <textarea name="comment_{{ comp.id }}" class="form-control" rows="2"
+                  placeholder="Justifique ou exemplifique...">{{ ans.comment if ans and ans.comment else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endfor %}
+
+  <!-- General observations -->
+  <div class="group-header">Observações Gerais</div>
+  <div class="card mb-16" style="margin-bottom:16px">
+    <div class="comp-name">Observações finais <span style="color:var(--red)">*</span></div>
+    <div class="comp-desc">Espaço para comentários gerais sobre o desempenho, pontos de destaque, oportunidades de desenvolvimento ou qualquer observação relevante.</div>
+    <textarea name="general_observations" class="form-control" rows="4" required
+              placeholder="Adicione suas observações gerais aqui..."
+              >{{ evaluation.general_observations or '' }}</textarea>
+  </div>
+
+  <div class="sticky-bar">
+    <div class="progress-text">
+      <span id="answered-count">0</span> de {{ groups.values()|map('length')|sum }} competências avaliadas
+    </div>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="btn btn-outline" onclick="saveProgress()">Salvar rascunho</button>
+      <button type="submit" class="btn btn-primary" id="submit-btn">
+        Enviar avaliação definitivamente
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const labels = {
+  1: "Muito abaixo da expectativa",
+  2: "Abaixo da expectativa",
+  3: "Atende a expectativa",
+  4: "Acima da expectativa",
+  5: "Muito acima da expectativa",
+};
+
+function updateLabel(compId, score) {
+  const el = document.getElementById('label-' + compId);
+  if (el) el.textContent = labels[score] || '';
+  updateProgress();
+}
+
+function updateProgress() {
+  const inputs = document.querySelectorAll('input[type=radio]:checked');
+  const compIds = new Set();
+  inputs.forEach(i => {
+    const match = i.name.match(/score_(\d+)/);
+    if (match) compIds.add(match[1]);
+  });
+  document.getElementById('answered-count').textContent = compIds.size;
+}
+
+function saveProgress() {
+  const form = document.getElementById('eval-form');
+  const formData = new FormData(form);
+  fetch('/evaluations/{{ evaluation.id }}/save', {
+    method: 'POST',
+    body: formData,
+  }).then(() => {
+    const btn = document.querySelector('.btn-outline');
+    btn.textContent = '✓ Salvo';
+    setTimeout(() => btn.textContent = 'Salvar rascunho', 2000);
+  });
+}
+
+// Init on load
+document.querySelectorAll('input[type=radio]:checked').forEach(inp => {
+  const match = inp.name.match(/score_(\d+)/);
+  if (match) {
+    const lbl = document.getElementById('label-' + match[1]);
+    if (lbl) lbl.textContent = labels[inp.value] || '';
+  }
+});
+updateProgress();
+
+// Confirm before submit
+document.getElementById('eval-form').addEventListener('submit', function(e) {
+  if (!confirm('Tem certeza que deseja enviar a avaliação? Não será possível editar após o envio.')) {
+    e.preventDefault();
+  }
+});
+</script>
+{% endblock %}

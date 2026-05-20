@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+avd360.db
+*.db
+.DS_Store
