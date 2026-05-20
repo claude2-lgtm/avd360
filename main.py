@@ -53,3 +53,14 @@ async def redirect_handler(request: Request, exc):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+@app.get("/setup")
+async def setup():
+    from app.models.database import create_tables, SessionLocal
+    from app.services.seed import run_seed
+    create_tables()
+    db = SessionLocal()
+    run_seed(db)
+    db.close()
+    return {"status": "ok", "msg": "Setup concluido! Admin criado."}
