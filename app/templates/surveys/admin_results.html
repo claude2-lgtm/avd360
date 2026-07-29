@@ -4,34 +4,84 @@
 {% block breadcrumb %}<a href="/surveys/manage">Formulários</a> / Resultados / {{ period }}{% endblock %}
 
 {% block content %}
-<div class="card mb-16" style="margin-bottom:20px;border-left:3px solid var(--purple)">
-  <div style="display:flex;align-items:center;justify-content:space-between">
-    <div>
-      <div style="font-size:16px;font-weight:600">Período {{ period }}</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:2px">{{ responses|length }} de {{ total_users }} colaboradores responderam</div>
+<!-- Resumo -->
+<div class="stats-grid" style="margin-bottom:20px">
+  <div class="stat-card accent">
+    <div class="stat-label">Respostas</div>
+    <div class="stat-value">{{ responses|length }}</div>
+    <div class="stat-sub">de {{ total_users }} colaboradores</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Taxa de resposta</div>
+    <div class="stat-value">{{ (responses|length * 100 / total_users)|round(0, 'floor')|int if total_users else 0 }}%</div>
+    <div class="stat-sub">no período {{ period }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Média geral</div>
+    <div class="stat-value" style="{% if overall_average %}color:{% if overall_average >= 4 %}var(--green){% elif overall_average >= 3 %}var(--amber){% else %}var(--red){% endif %}{% endif %}">
+      {{ "%.2f"|format(overall_average) if overall_average else "—" }}
     </div>
+    <div class="stat-sub">escala de 1 a 5</div>
   </div>
 </div>
 
+<!-- Resultados por pergunta -->
 <div class="card" style="margin-bottom:20px">
   <div class="card-header">
-    <div class="card-title">Médias por pergunta</div>
-    <div class="card-subtitle">Escala de 1 (nada satisfeito) a 5 (extremamente satisfeito)</div>
+    <div>
+      <div class="card-title">Resumo por pergunta</div>
+      <div class="card-subtitle">Distribuição das respostas de todos os colaboradores</div>
+    </div>
   </div>
+
   {% for group_name, questions in groups.items() %}
-    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:12px 0 6px">{{ group_name }}</div>
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:16px 0 8px;border-top:1px solid var(--border)">{{ group_name }}</div>
     {% for q in questions %}
-    {% if q.type.value == 'scale' %}
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="font-size:13px;flex:1">{{ q.text }}</div>
-      {% set avg = averages.get(q.id) %}
-      {% if avg %}
-      <span style="font-size:16px;font-weight:600;color:{% if avg >= 4 %}var(--green){% elif avg >= 3 %}var(--amber){% else %}var(--red){% endif %}">{{ "%.2f"|format(avg) }}</span>
+    <div style="padding:14px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:500;flex:1">{{ q.text }}</div>
+        {% if q.type.value == 'scale' %}
+          {% set avg = averages.get(q.id) %}
+          {% if avg %}
+          <span style="font-size:15px;font-weight:600;flex-shrink:0;color:{% if avg >= 4 %}var(--green){% elif avg >= 3 %}var(--amber){% else %}var(--red){% endif %}">{{ "%.2f"|format(avg) }}</span>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {% if q.type.value == 'scale' %}
+        {% set dist = distributions.get(q.id) %}
+        {% if dist and dist.total > 0 %}
+        <div style="display:flex;flex-direction:column;gap:6px">
+          {% for v in range(1, 6) %}
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:130px;flex-shrink:0;font-size:11px;color:var(--text3)">{{ v }} — {{ scale_labels[v] }}</div>
+            <div class="progress-bar" style="flex:1">
+              <div class="progress-fill {% if v >= 4 %}green{% elif v == 3 %}amber{% endif %}" style="width:{{ dist.pct[v] }}%"></div>
+            </div>
+            <div style="width:70px;flex-shrink:0;text-align:right;font-size:11px;color:var(--text3)">{{ dist.counts[v] }} ({{ dist.pct[v] }}%)</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted" style="font-size:12px">Nenhuma resposta ainda.</div>
+        {% endif %}
       {% else %}
-      <span class="text-muted">—</span>
+        {% set texts = text_answers.get(q.id, []) %}
+        {% if texts %}
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto">
+          {% for t in texts %}
+          <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:8px 12px">
+            <div style="font-size:13px">{{ t.text }}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:4px">— {{ t.user }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">{{ texts|length }} resposta(s)</div>
+        {% else %}
+        <div class="text-muted" style="font-size:12px">Nenhuma resposta ainda.</div>
+        {% endif %}
       {% endif %}
     </div>
-    {% endif %}
     {% endfor %}
   {% endfor %}
 </div>

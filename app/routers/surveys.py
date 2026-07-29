@@ -455,15 +455,39 @@ async def admin_survey_results(survey_type: str, request: Request, db: Session =
     total_users = db.query(User).filter(User.is_active == True).count()
 
     averages = {}
+    distributions = {}
+    text_answers = {}
     for q in form.questions:
-        if q.type != SurveyQuestionType.scale and q.type != "scale":
-            continue
+        is_scale = q.type == SurveyQuestionType.scale or q.type == "scale"
         scores = []
+        texts = []
         for r in responses:
             for a in r.answers:
-                if a.question_id == q.id and a.score is not None:
+                if a.question_id != q.id:
+                    continue
+                if is_scale and a.score is not None:
                     scores.append(a.score)
-        averages[q.id] = round(sum(scores) / len(scores), 2) if scores else None
+                elif not is_scale and a.text_answer:
+                    texts.append({"user": r.user.name, "text": a.text_answer})
+
+        if is_scale:
+            averages[q.id] = round(sum(scores) / len(scores), 2) if scores else None
+            counts = {v: scores.count(v) for v in range(1, 6)}
+            total = len(scores) or 1
+            distributions[q.id] = {
+                "counts": counts,
+                "pct": {v: round(counts[v] * 100 / total, 1) for v in range(1, 6)},
+                "total": len(scores),
+            }
+        else:
+            text_answers[q.id] = texts
+
+    scale_question_ids = {q.id for q in form.questions if q.type == SurveyQuestionType.scale or q.type == "scale"}
+    overall_scores = [
+        a.score for r in responses for a in r.answers
+        if a.question_id in scale_question_ids and a.score is not None
+    ]
+    overall_average = round(sum(overall_scores) / len(overall_scores), 2) if overall_scores else None
 
     return templates.TemplateResponse("surveys/admin_results.html", {
         "request": request,
@@ -474,6 +498,9 @@ async def admin_survey_results(survey_type: str, request: Request, db: Session =
         "responses": responses,
         "total_users": total_users,
         "averages": averages,
+        "distributions": distributions,
+        "text_answers": text_answers,
+        "overall_average": overall_average,
         "groups": _grouped_questions(form),
         "scale_labels": SCALE_LABELS,
     })
