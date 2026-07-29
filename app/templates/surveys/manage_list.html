@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Gerenciar Formulários | AVD 360°{% endblock %}
+{% block page_title %}Gerenciar Formulários{% endblock %}
+{% block breadcrumb %}Pesquisas{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+  <a href="/surveys/manage/new" class="btn btn-primary">+ Novo Formulário</a>
+</div>
+
+<div class="card">
+  {% if forms_data %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Formulário</th>
+          <th>Link (chave)</th>
+          <th>Perguntas</th>
+          <th>Respostas (período atual)</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in forms_data %}
+        {% set f = item.form %}
+        <tr>
+          <td style="font-weight:500">{{ f.title }}</td>
+          <td class="text-muted">/surveys/{{ f.key }}</td>
+          <td>{{ item.question_count }}</td>
+          <td>{{ item.response_count }}</td>
+          <td>
+            {% if f.is_active %}
+            <span class="badge badge-green">Ativo</span>
+            {% else %}
+            <span class="badge badge-gray">Inativo</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <a href="/surveys/manage/{{ f.id }}/edit" class="btn btn-outline btn-sm">Editar</a>
+              <a href="/surveys/admin/{{ f.key }}/results" class="btn btn-outline btn-sm">Resultados</a>
+              <form method="POST" action="/surveys/manage/{{ f.id }}/toggle" style="display:inline">
+                <button type="submit" class="btn btn-outline btn-sm">{% if f.is_active %}Desativar{% else %}Ativar{% endif %}</button>
+              </form>
+              <form method="POST" action="/surveys/manage/{{ f.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('Excluir este formulário e todas as respostas recebidas? Essa ação não pode ser desfeita.')">
+                <button type="submit" class="btn btn-outline btn-sm" style="color:var(--red)">Excluir</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>Nenhum formulário criado ainda.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

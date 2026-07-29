@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Editar {{ form.title }} | AVD 360°{% endblock %}
+{% block page_title %}{{ form.title }}{% endblock %}
+{% block breadcrumb %}<a href="/surveys/manage">Formulários</a> / Editar{% endblock %}
+
+{% block content %}
+{% if created %}
+<div class="alert alert-success">✓ Formulário criado! Agora adicione as perguntas abaixo. Link para os colaboradores: <code>/surveys/{{ form.key }}</code></div>
+{% endif %}
+{% if request.query_params.get('saved') %}
+<div class="alert alert-success">✓ Alterações salvas.</div>
+{% endif %}
+
+<!-- Título / descrição -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-header">
+    <div class="card-title">Informações gerais</div>
+    <div class="card-subtitle">Link do formulário: <code>/surveys/{{ form.key }}</code></div>
+  </div>
+  <form method="POST" action="/surveys/manage/{{ form.id }}/edit">
+    <div class="form-group">
+      <label class="form-label required">Título</label>
+      <input type="text" name="title" class="form-control" value="{{ form.title }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <textarea name="description" class="form-control" rows="2">{{ form.description or '' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Salvar informações</button>
+  </form>
+</div>
+
+<!-- Perguntas -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-header">
+    <div class="card-title">Perguntas</div>
+    <div class="card-subtitle">{{ form.questions|length }} pergunta(s) — a ordem aqui é a ordem exibida no formulário</div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:6px">
+    {% for q in form.questions %}
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div style="flex:1">
+          {% if q.group_name %}
+          <div style="font-size:10px;color:var(--purple-mid);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">{{ q.group_name }}</div>
+          {% endif %}
+          <div style="font-size:13px;font-weight:500">{{ q.text }}</div>
+          <span class="badge {% if q.type.value == 'scale' %}badge-purple{% else %}badge-gray{% endif %}" style="font-size:10px;margin-top:6px">
+            {% if q.type.value == 'scale' %}Nota 1-5{% else %}Resposta aberta{% endif %}
+          </span>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <form method="POST" action="/surveys/manage/{{ form.id }}/questions/{{ q.id }}/move">
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" class="btn btn-outline btn-sm" title="Mover para cima">↑</button>
+          </form>
+          <form method="POST" action="/surveys/manage/{{ form.id }}/questions/{{ q.id }}/move">
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" class="btn btn-outline btn-sm" title="Mover para baixo">↓</button>
+          </form>
+          <button type="button" onclick="toggleEdit('q-{{ q.id }}')" class="btn btn-outline btn-sm">Editar</button>
+          <form method="POST" action="/surveys/manage/{{ form.id }}/questions/{{ q.id }}/delete"
+                onsubmit="return confirm('Remover esta pergunta? Respostas já dadas a ela serão perdidas.')">
+            <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Edit question form (hidden) -->
+      <div id="q-{{ q.id }}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <form method="POST" action="/surveys/manage/{{ form.id }}/questions/{{ q.id }}/edit">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Seção / grupo (opcional)</label>
+              <input type="text" name="group_name" class="form-control" value="{{ q.group_name or '' }}" placeholder="Ex: Satisfação Geral">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo de resposta</label>
+              <select name="type" class="form-control">
+                <option value="scale" {% if q.type.value == 'scale' %}selected{% endif %}>Nota de 1 a 5</option>
+                <option value="text" {% if q.type.value == 'text' %}selected{% endif %}>Resposta aberta (texto)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pergunta</label>
+            <textarea name="text" class="form-control" rows="2" required>{{ q.text }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Salvar pergunta</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if not form.questions %}
+  <div class="empty-state">
+    <p>Nenhuma pergunta ainda. Adicione a primeira abaixo.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add question -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Adicionar pergunta</div>
+  </div>
+  <form method="POST" action="/surveys/manage/{{ form.id }}/questions/add">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Seção / grupo (opcional)</label>
+        <input type="text" name="group_name" class="form-control" placeholder="Ex: Comunicação">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de resposta</label>
+        <select name="type" class="form-control">
+          <option value="scale">Nota de 1 a 5</option>
+          <option value="text">Resposta aberta (texto)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label required">Pergunta</label>
+      <textarea name="text" class="form-control" rows="2" required placeholder="Digite a pergunta..."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">+ Adicionar pergunta</button>
+  </form>
+</div>
+
+<div style="margin-top:20px;display:flex;gap:8px">
+  <a href="/surveys/manage" class="btn btn-outline">Voltar aos formulários</a>
+  <a href="/surveys/{{ form.key }}" class="btn btn-outline" target="_blank">Ver como colaborador ↗</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleEdit(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

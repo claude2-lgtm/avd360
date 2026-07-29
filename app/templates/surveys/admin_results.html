@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Resultados — {{ form_obj.title }} | AVD 360°{% endblock %}
+{% block page_title %}Resultados — {{ form_obj.title }}{% endblock %}
+{% block breadcrumb %}<a href="/surveys/manage">Formulários</a> / Resultados / {{ period }}{% endblock %}
+
+{% block content %}
+<div class="card mb-16" style="margin-bottom:20px;border-left:3px solid var(--purple)">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:16px;font-weight:600">Período {{ period }}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">{{ responses|length }} de {{ total_users }} colaboradores responderam</div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">
+    <div class="card-title">Médias por pergunta</div>
+    <div class="card-subtitle">Escala de 1 (nada satisfeito) a 5 (extremamente satisfeito)</div>
+  </div>
+  {% for group_name, questions in groups.items() %}
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:12px 0 6px">{{ group_name }}</div>
+    {% for q in questions %}
+    {% if q.type.value == 'scale' %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;flex:1">{{ q.text }}</div>
+      {% set avg = averages.get(q.id) %}
+      {% if avg %}
+      <span style="font-size:16px;font-weight:600;color:{% if avg >= 4 %}var(--green){% elif avg >= 3 %}var(--amber){% else %}var(--red){% endif %}">{{ "%.2f"|format(avg) }}</span>
+      {% else %}
+      <span class="text-muted">—</span>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Respostas individuais</div>
+    <div class="card-subtitle">Identificadas por colaborador</div>
+  </div>
+  {% if responses %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Colaborador</th>
+          <th>Cargo / Departamento</th>
+          <th>Enviado em</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in responses %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">
+                {{ r.user.name[:2].upper() }}
+              </div>
+              <span style="font-weight:500">{{ r.user.name }}</span>
+            </div>
+          </td>
+          <td class="text-muted">{{ r.user.department }} / {{ r.user.position }}</td>
+          <td class="text-muted">{{ r.submitted_at.strftime('%d/%m/%Y %H:%M') if r.submitted_at else '—' }}</td>
+          <td>
+            <a href="/surveys/admin/{{ survey_type }}/results/{{ r.user.id }}?period={{ period }}" class="btn btn-outline btn-sm">Ver respostas</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>Ninguém respondeu esta pesquisa neste período ainda.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ form_obj.title }} | AVD 360°{% endblock %}
+{% block page_title %}{{ form_obj.title }}{% endblock %}
+{% block breadcrumb %}
+{% if viewing_as_admin %}<a href="/surveys/admin/{{ survey_type }}/results">Resultados</a> / {{ response.user.name }}
+{% else %}<a href="/surveys">Pesquisas</a> / Enviada{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-success">✓ Enviada em {{ response.submitted_at.strftime('%d/%m/%Y às %H:%M') if response.submitted_at else '—' }}{% if viewing_as_admin %} por <strong>{{ response.user.name }}</strong>{% endif %}</div>
+
+{% for group_name, questions in groups.items() %}
+<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:16px 0 8px;border-bottom:1px solid var(--border);margin-bottom:12px">
+  {{ group_name }}
+</div>
+{% for q in questions %}
+{% set ans = answers.get(q.id) %}
+<div class="card" style="margin-bottom:10px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:500;margin-bottom:6px">{{ q.text }}</div>
+      {% if q.type.value == 'scale' %}
+        {% if ans and ans.score %}
+        <span style="font-size:12px;color:var(--purple-mid);font-weight:500">{{ scale_labels[ans.score] }}</span>
+        {% else %}
+        <span class="text-muted">—</span>
+        {% endif %}
+      {% else %}
+        {% if ans and ans.text_answer %}
+        <div style="font-size:13px;color:var(--text2);background:var(--surface2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--purple-border)">
+          {{ ans.text_answer }}
+        </div>
+        {% else %}
+        <span class="text-muted">—</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if q.type.value == 'scale' %}
+    <div style="font-size:28px;font-weight:700;color:{% if ans and ans.score >= 4 %}var(--green){% elif ans and ans.score == 3 %}var(--amber){% elif ans and ans.score %}var(--red){% else %}var(--text3){% endif %}">
+      {% if ans and ans.score %}{{ ans.score }}{% else %}—{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endfor %}
+
+<div style="margin-top:20px">
+  <a href="{% if viewing_as_admin %}/surveys/admin/{{ survey_type }}/results{% else %}/surveys{% endif %}" class="btn btn-outline">Voltar</a>
+</div>
+{% endblock %}

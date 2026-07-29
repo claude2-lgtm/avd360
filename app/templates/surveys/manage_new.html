@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Novo Formulário | AVD 360°{% endblock %}
+{% block page_title %}Novo Formulário{% endblock %}
+{% block breadcrumb %}<a href="/surveys/manage">Formulários</a> / Novo{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="card" style="max-width:560px">
+  <form method="POST" action="/surveys/manage/new">
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">Título do formulário <span style="color:var(--red)">*</span></div>
+      <input type="text" name="title" class="form-control" required placeholder="Ex: Pesquisa de Onboarding">
+    </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">Descrição (opcional)</div>
+      <textarea name="description" class="form-control" rows="3" placeholder="Uma frase explicando o objetivo desta pesquisa"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <a href="/surveys/manage" class="btn btn-outline">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Criar e adicionar perguntas</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

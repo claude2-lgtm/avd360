@@ -180,6 +180,77 @@ class EvaluationAnswer(Base):
     competency = relationship("Competency", back_populates="answers")
 
 
+class SurveyQuestionType(str, enum.Enum):
+    scale = "scale"
+    text = "text"
+
+
+class SurveyForm(Base):
+    __tablename__ = "survey_forms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(50), unique=True, nullable=False, index=True)  # slug, ex: "fib"
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    questions = relationship(
+        "SurveyQuestion", back_populates="form",
+        order_by="SurveyQuestion.order", cascade="all, delete-orphan",
+    )
+    responses = relationship("SurveyResponse", back_populates="form", cascade="all, delete-orphan")
+
+
+class SurveyQuestion(Base):
+    __tablename__ = "survey_questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(Integer, ForeignKey("survey_forms.id"), nullable=False)
+    group_name = Column(String(200), nullable=True)
+    text = Column(Text, nullable=False)
+    type = Column(SAEnum(SurveyQuestionType), default=SurveyQuestionType.scale, nullable=False)
+    order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+
+    form = relationship("SurveyForm", back_populates="questions")
+    answers = relationship("SurveyAnswer", back_populates="question", cascade="all, delete-orphan")
+
+
+class SurveyResponse(Base):
+    __tablename__ = "survey_responses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(Integer, ForeignKey("survey_forms.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    period = Column(String(20), nullable=False)  # e.g. "2026-1" (semestre)
+    status = Column(SAEnum(EvaluationStatus), default=EvaluationStatus.pending, nullable=False)
+    submitted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    form = relationship("SurveyForm", back_populates="responses")
+    user = relationship("User")
+    answers = relationship("SurveyAnswer", back_populates="response", cascade="all, delete-orphan")
+
+
+class SurveyAnswer(Base):
+    __tablename__ = "survey_answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    response_id = Column(Integer, ForeignKey("survey_responses.id"), nullable=False)
+    question_id = Column(Integer, ForeignKey("survey_questions.id"), nullable=False)
+    score = Column(Integer, nullable=True)
+    text_answer = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    response = relationship("SurveyResponse", back_populates="answers")
+    question = relationship("SurveyQuestion", back_populates="answers")
+
+
 def get_db():
     db = SessionLocal()
     try:

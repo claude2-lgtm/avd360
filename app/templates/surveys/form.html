@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ form_obj.title }} | AVD 360°{% endblock %}
+{% block page_title %}{{ form_obj.title }}{% endblock %}
+{% block breadcrumb %}<a href="/surveys">Pesquisas</a> / {{ form_obj.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .q-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 12px;
+  }
+  .q-card:focus-within { border-color: var(--purple); }
+  .q-text { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+  .scale-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .scale-option { flex: 1; min-width: 90px; }
+  .scale-option input[type=radio] { display: none; }
+  .scale-option label {
+    display: block; text-align: center; padding: 10px 6px;
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+    font-size: 12px; color: var(--text2); transition: all 0.15s;
+  }
+  .scale-option label .num { display: block; font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .scale-option input[type=radio]:checked + label {
+    background: var(--purple-light); border-color: var(--purple); color: var(--purple-mid);
+  }
+  .group-header {
+    font-size: 11px; font-weight: 600; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 16px 0 8px; border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .sticky-bar {
+    position: sticky; bottom: 0; background: var(--surface);
+    border-top: 1px solid var(--border); padding: 16px 28px;
+    display: flex; align-items: center; justify-content: flex-end;
+    margin: 0 -28px; z-index: 50; gap: 8px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+{% if saved %}
+<div class="alert alert-success">✓ Rascunho salvo. Continue preenchendo.</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:16px;border-left:3px solid var(--purple)">
+  <p style="font-size:13px;color:var(--text2)">{{ form_obj.description }}</p>
+</div>
+
+<form method="POST" action="/surveys/{{ survey_type }}/submit" id="survey-form">
+  {% for group_name, questions in groups.items() %}
+  <div class="group-header">{{ group_name }}</div>
+  {% for q in questions %}
+  {% set ans = existing.get(q.id) %}
+  <div class="q-card">
+    <div class="q-text">{{ q.text }}</div>
+    {% if q.type.value == 'scale' %}
+    <div class="scale-group">
+      {% for s in [1,2,3,4,5] %}
+      <div class="scale-option">
+        <input type="radio" name="score_{{ q.id }}" id="opt-{{ q.id }}-{{ s }}" value="{{ s }}"
+               {% if ans and ans.score == s %}checked{% endif %}>
+        <label for="opt-{{ q.id }}-{{ s }}">
+          <span class="num">{{ s }}</span>{{ scale_labels[s] }}
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <textarea name="text_{{ q.id }}" class="form-control" rows="3"
+              placeholder="Escreva sua resposta...">{{ ans.text_answer if ans and ans.text_answer else '' }}</textarea>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+
+  <div class="sticky-bar">
+    <button type="button" class="btn btn-outline" onclick="saveProgress()">Salvar rascunho</button>
+    <button type="submit" class="btn btn-primary" id="submit-btn">Enviar pesquisa definitivamente</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveProgress() {
+  const form = document.getElementById('survey-form');
+  const formData = new FormData(form);
+  fetch('/surveys/{{ survey_type }}/save', { method: 'POST', body: formData })
+    .then(() => {
+      const btn = document.querySelector('.btn-outline');
+      btn.textContent = '✓ Salvo';
+      setTimeout(() => btn.textContent = 'Salvar rascunho', 2000);
+    });
+}
+
+document.getElementById('survey-form').addEventListener('submit', function(e) {
+  if (!confirm('Tem certeza que deseja enviar a pesquisa? Não será possível editar após o envio.')) {
+    e.preventDefault();
+  }
+});
+</script>
+{% endblock %}

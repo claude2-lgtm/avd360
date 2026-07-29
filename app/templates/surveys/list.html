@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Pesquisas | AVD 360°{% endblock %}
+{% block page_title %}Pesquisas{% endblock %}
+{% block breadcrumb %}Período {{ period }}{% endblock %}
+
+{% block content %}
+{% if request.query_params.get('msg') == 'submitted' %}
+<div class="alert alert-success">✓ Pesquisa enviada com sucesso. Obrigado por participar!</div>
+{% endif %}
+
+<div class="alert alert-info" style="margin-bottom:20px">
+  Estas pesquisas ajudam o Grupo Gestão a entender o clima organizacional e o bem-estar da equipe. Suas respostas ficam registradas junto ao seu perfil.
+</div>
+
+{% if cards %}
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+  {% for c in cards %}
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">
+      <div style="font-size:16px;font-weight:600">{{ c.title }}</div>
+      {% if c.status == 'submitted' %}
+      <span class="badge badge-green">✓ Concluída</span>
+      {% elif c.status == 'in_progress' %}
+      <span class="badge badge-amber">Em andamento</span>
+      {% else %}
+      <span class="badge badge-gray">Pendente</span>
+      {% endif %}
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5">{{ c.description }}</p>
+    {% if c.status == 'submitted' %}
+    <a href="/surveys/{{ c.key }}/view" class="btn btn-outline btn-sm">Ver minha resposta</a>
+    {% else %}
+    <a href="/surveys/{{ c.key }}" class="btn btn-primary btn-sm">
+      {% if c.status == 'in_progress' %}Continuar{% else %}Responder{% endif %}
+    </a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state" style="padding:60px 24px">
+    <p>Nenhuma pesquisa disponível no momento.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
