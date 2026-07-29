@@ -6,7 +6,8 @@ import os
 
 from app.models.database import create_tables, SessionLocal
 from app.services.seed import run_seed
-from app.routers import auth, dashboard, users, cycles, evaluations, competencies
+from app.services.surveys_data import seed_surveys
+from app.routers import auth, dashboard, users, cycles, evaluations, competencies, surveys
 
 
 @asynccontextmanager
@@ -15,6 +16,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         run_seed(db)
+        seed_surveys(db)
     finally:
         db.close()
     print("AVD 360 iniciado em http://localhost:8000")
@@ -38,6 +40,7 @@ app.include_router(users.router)
 app.include_router(cycles.router)
 app.include_router(evaluations.router)
 app.include_router(competencies.router)
+app.include_router(surveys.router)
 
 
 @app.get("/")
@@ -59,8 +62,10 @@ if __name__ == "__main__":
 async def setup():
     from app.models.database import create_tables, SessionLocal
     from app.services.seed import run_seed
+    from app.services.surveys_data import seed_surveys
     create_tables()
     db = SessionLocal()
     run_seed(db)
+    seed_surveys(db)
     db.close()
     return {"status": "ok", "msg": "Setup concluido! Admin criado."}
