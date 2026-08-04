@@ -18,6 +18,7 @@
           <th>Link (chave)</th>
           <th>Perguntas</th>
           <th>Respostas (período atual)</th>
+          <th>Prazo (horário de Brasília)</th>
           <th>Status</th>
           <th>Ações</th>
         </tr>
@@ -30,6 +31,14 @@
           <td class="text-muted">/surveys/{{ f.key }}</td>
           <td>{{ item.question_count }}</td>
           <td>{{ item.response_count }}</td>
+          <td class="text-muted" style="font-size:12px">
+            {% if f.opens_at or f.closes_at %}
+              {% if f.opens_at %}De {{ item.opens_at_display }}{% endif %}
+              {% if f.closes_at %} até {{ item.closes_at_display }}{% endif %}
+            {% else %}
+            Sem prazo
+            {% endif %}
+          </td>
           <td>
             {% if f.is_active %}
             <span class="badge badge-green">Ativo</span>

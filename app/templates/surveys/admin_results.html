@@ -40,23 +40,24 @@
     <div style="padding:14px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">
         <div style="font-size:13px;font-weight:500;flex:1">{{ q.text }}</div>
-        {% if q.type.value == 'scale' %}
+        {% if q.type.value in ('scale', 'rating10') %}
           {% set avg = averages.get(q.id) %}
+          {% set dist = distributions.get(q.id) %}
           {% if avg %}
-          <span style="font-size:15px;font-weight:600;flex-shrink:0;color:{% if avg >= 4 %}var(--green){% elif avg >= 3 %}var(--amber){% else %}var(--red){% endif %}">{{ "%.2f"|format(avg) }}</span>
+          <span style="font-size:15px;font-weight:600;flex-shrink:0;color:{% if avg >= dist.max * 0.8 %}var(--green){% elif avg >= dist.max * 0.6 %}var(--amber){% else %}var(--red){% endif %}">{{ "%.2f"|format(avg) }}</span>
           {% endif %}
         {% endif %}
       </div>
 
-      {% if q.type.value == 'scale' %}
+      {% if q.type.value in ('scale', 'rating10') %}
         {% set dist = distributions.get(q.id) %}
         {% if dist and dist.total > 0 %}
         <div style="display:flex;flex-direction:column;gap:6px">
-          {% for v in range(1, 6) %}
+          {% for v in dist.range %}
           <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:130px;flex-shrink:0;font-size:11px;color:var(--text3)">{{ v }} — {{ scale_labels[v] }}</div>
+            <div style="width:130px;flex-shrink:0;font-size:11px;color:var(--text3)">{{ v }}{% if q.type.value == 'scale' %} — {{ scale_labels[v] }}{% endif %}</div>
             <div class="progress-bar" style="flex:1">
-              <div class="progress-fill {% if v >= 4 %}green{% elif v == 3 %}amber{% endif %}" style="width:{{ dist.pct[v] }}%"></div>
+              <div class="progress-fill {% if v >= dist.max * 0.8 %}green{% elif v >= dist.max * 0.6 %}amber{% endif %}" style="width:{{ dist.pct[v] }}%"></div>
             </div>
             <div style="width:70px;flex-shrink:0;text-align:right;font-size:11px;color:var(--text3)">{{ dist.counts[v] }} ({{ dist.pct[v] }}%)</div>
           </div>

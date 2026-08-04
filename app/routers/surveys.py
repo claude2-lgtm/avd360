@@ -10,7 +10,10 @@ from app.models.database import (
     SurveyResponse, SurveyAnswer, EvaluationStatus, User,
 )
 from app.services.auth import get_current_user_from_cookie, require_admin
-from app.services.surveys_data import SCALE_LABELS, current_period
+from app.services.surveys_data import (
+    SCALE_LABELS, SCALE_RANGES, current_period,
+    br_to_utc, utc_to_br_input, utc_to_br_display,
+)
 
 router = APIRouter(prefix="/surveys")
 templates = make_templates()
@@ -19,6 +22,17 @@ templates = make_templates()
 def _slugify(text: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return slug or "formulario"
+
+
+def _deadline_status(form: SurveyForm, now: datetime = None):
+    """None se o formulário está dentro do prazo (ou sem prazo definido);
+    caso contrário, uma mensagem explicando por que está fechado."""
+    now = now or datetime.utcnow()
+    if form.opens_at and now < form.opens_at:
+        return f"Esta pesquisa abre em {utc_to_br_display(form.opens_at)} (horário de Brasília)."
+    if form.closes_at and now > form.closes_at:
+        return f"O prazo desta pesquisa encerrou em {utc_to_br_display(form.closes_at)} (horário de Brasília)."
+    return None
 
 
 # ── Preenchimento (colaborador) ─────────────────────────────────────────────
@@ -44,6 +58,7 @@ async def surveys_list(request: Request, db: Session = Depends(get_db)):
             "title": form.title,
             "description": form.description,
             "status": resp.status.value if resp else "pending",
+            "closed_msg": None if (resp and resp.status == EvaluationStatus.submitted) else _deadline_status(form),
         })
 
     return templates.TemplateResponse("surveys/list.html", {
@@ -70,7 +85,11 @@ async def manage_list(request: Request, db: Session = Depends(get_db)):
             SurveyResponse.form_id == f.id,
             SurveyResponse.status == EvaluationStatus.submitted,
         ).count()
-        forms_data.append({"form": f, "question_count": len(f.questions), "response_count": resp_count})
+        forms_data.append({
+            "form": f, "question_count": len(f.questions), "response_count": resp_count,
+            "opens_at_display": utc_to_br_display(f.opens_at),
+            "closes_at_display": utc_to_br_display(f.closes_at),
+        })
 
     return templates.TemplateResponse("surveys/manage_list.html", {
         "request": request,
@@ -94,12 +113,21 @@ async def manage_create_form(request: Request, db: Session = Depends(get_db)):
     form_data = await request.form()
     title = (form_data.get("title") or "").strip()
     description = (form_data.get("description") or "").strip()
+    opens_at = br_to_utc(form_data.get("opens_at"))
+    closes_at = br_to_utc(form_data.get("closes_at"))
 
     if not title:
         return templates.TemplateResponse("surveys/manage_new.html", {
             "request": request,
             "current_user": user,
             "error": "O título é obrigatório.",
+        }, status_code=400)
+
+    if opens_at and closes_at and opens_at > closes_at:
+        return templates.TemplateResponse("surveys/manage_new.html", {
+            "request": request,
+            "current_user": user,
+            "error": "O prazo de encerramento precisa ser depois do início.",
         }, status_code=400)
 
     base_key = _slugify(title)
@@ -111,7 +139,8 @@ async def manage_create_form(request: Request, db: Session = Depends(get_db)):
 
     form = SurveyForm(
         key=key, title=title, description=description or None,
-        is_active=True, created_by_id=user.id,
+        is_active=True, opens_at=opens_at, closes_at=closes_at,
+        created_by_id=user.id,
     )
     db.add(form)
     db.commit()
@@ -132,12 +161,14 @@ async def manage_edit_form(form_id: int, request: Request, db: Session = Depends
         "current_user": user,
         "form": form,
         "created": request.query_params.get("created"),
+        "opens_at_input": utc_to_br_input(form.opens_at),
+        "closes_at_input": utc_to_br_input(form.closes_at),
     })
 
 
 @router.post("/manage/{form_id}/edit")
 async def manage_update_form(form_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    user = require_admin(request, db)
     form = db.query(SurveyForm).get(form_id)
     if not form:
         raise HTTPException(404)
@@ -145,9 +176,24 @@ async def manage_update_form(form_id: int, request: Request, db: Session = Depen
     form_data = await request.form()
     title = (form_data.get("title") or "").strip()
     description = (form_data.get("description") or "").strip()
+    opens_at = br_to_utc(form_data.get("opens_at"))
+    closes_at = br_to_utc(form_data.get("closes_at"))
+
+    if opens_at and closes_at and opens_at > closes_at:
+        return templates.TemplateResponse("surveys/manage_edit.html", {
+            "request": request,
+            "current_user": user,
+            "form": form,
+            "opens_at_input": form_data.get("opens_at"),
+            "closes_at_input": form_data.get("closes_at"),
+            "error": "O prazo de encerramento precisa ser depois do início.",
+        }, status_code=400)
+
     if title:
         form.title = title
     form.description = description or None
+    form.opens_at = opens_at
+    form.closes_at = closes_at
     db.commit()
 
     return RedirectResponse(f"/surveys/manage/{form_id}/edit?saved=1", status_code=302)
@@ -307,6 +353,7 @@ async def survey_form(survey_type: str, request: Request, db: Session = Depends(
         "existing": existing,
         "scale_labels": SCALE_LABELS,
         "saved": request.query_params.get("saved"),
+        "closed_msg": _deadline_status(form),
     })
 
 
@@ -318,7 +365,7 @@ async def _save_answers(db: Session, resp: SurveyResponse, form: SurveyForm, for
             SurveyAnswer.question_id == q.id,
         ).first()
 
-        if q.type == SurveyQuestionType.scale or q.type == "scale":
+        if q.type in (SurveyQuestionType.scale, SurveyQuestionType.rating10) or q.type in ("scale", "rating10"):
             val = form_data.get(f"score_{q.id}")
             score = int(val) if val else None
             if not existing:
@@ -353,6 +400,8 @@ async def save_survey(survey_type: str, request: Request, db: Session = Depends(
     resp = _get_or_create_response(db, form, user.id, period)
     if resp.status == EvaluationStatus.submitted:
         raise HTTPException(400, detail="Pesquisa já enviada.")
+    if _deadline_status(form):
+        raise HTTPException(400, detail="Fora do prazo desta pesquisa.")
 
     form_data = await request.form()
     await _save_answers(db, resp, form, form_data)
@@ -376,6 +425,8 @@ async def submit_survey(survey_type: str, request: Request, db: Session = Depend
     resp = _get_or_create_response(db, form, user.id, period)
     if resp.status == EvaluationStatus.submitted:
         raise HTTPException(400, detail="Pesquisa já enviada.")
+    if _deadline_status(form):
+        raise HTTPException(400, detail="Fora do prazo desta pesquisa.")
 
     form_data = await request.form()
     missing = await _save_answers(db, resp, form, form_data)
@@ -458,31 +509,35 @@ async def admin_survey_results(survey_type: str, request: Request, db: Session =
     distributions = {}
     text_answers = {}
     for q in form.questions:
-        is_scale = q.type == SurveyQuestionType.scale or q.type == "scale"
+        q_type = q.type.value if hasattr(q.type, "value") else q.type
+        is_numeric = q_type in SCALE_RANGES
         scores = []
         texts = []
         for r in responses:
             for a in r.answers:
                 if a.question_id != q.id:
                     continue
-                if is_scale and a.score is not None:
+                if is_numeric and a.score is not None:
                     scores.append(a.score)
-                elif not is_scale and a.text_answer:
+                elif not is_numeric and a.text_answer:
                     texts.append({"user": r.user.name, "text": a.text_answer})
 
-        if is_scale:
+        if is_numeric:
+            value_range = SCALE_RANGES[q_type]
             averages[q.id] = round(sum(scores) / len(scores), 2) if scores else None
-            counts = {v: scores.count(v) for v in range(1, 6)}
+            counts = {v: scores.count(v) for v in value_range}
             total = len(scores) or 1
             distributions[q.id] = {
                 "counts": counts,
-                "pct": {v: round(counts[v] * 100 / total, 1) for v in range(1, 6)},
+                "pct": {v: round(counts[v] * 100 / total, 1) for v in value_range},
                 "total": len(scores),
+                "range": list(value_range),
+                "max": value_range[-1],
             }
         else:
             text_answers[q.id] = texts
 
-    scale_question_ids = {q.id for q in form.questions if q.type == SurveyQuestionType.scale or q.type == "scale"}
+    scale_question_ids = {q.id for q in form.questions if (q.type.value if hasattr(q.type, "value") else q.type) == "scale"}
     overall_scores = [
         a.score for r in responses for a in r.answers
         if a.question_id in scale_question_ids and a.score is not None

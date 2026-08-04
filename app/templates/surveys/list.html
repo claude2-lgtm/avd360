@@ -20,6 +20,8 @@
       <div style="font-size:16px;font-weight:600">{{ c.title }}</div>
       {% if c.status == 'submitted' %}
       <span class="badge badge-green">✓ Concluída</span>
+      {% elif c.closed_msg %}
+      <span class="badge badge-gray">Fora do prazo</span>
       {% elif c.status == 'in_progress' %}
       <span class="badge badge-amber">Em andamento</span>
       {% else %}
@@ -29,6 +31,8 @@
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5">{{ c.description }}</p>
     {% if c.status == 'submitted' %}
     <a href="/surveys/{{ c.key }}/view" class="btn btn-outline btn-sm">Ver minha resposta</a>
+    {% elif c.closed_msg %}
+    <div style="font-size:12px;color:var(--text3)">{{ c.closed_msg }}</div>
     {% else %}
     <a href="/surveys/{{ c.key }}" class="btn btn-primary btn-sm">
       {% if c.status == 'in_progress' %}Continuar{% else %}Responder{% endif %}

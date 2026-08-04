@@ -25,6 +25,10 @@
         {% else %}
         <span class="text-muted">—</span>
         {% endif %}
+      {% elif q.type.value == 'rating10' %}
+        {% if not (ans and ans.score) %}
+        <span class="text-muted">—</span>
+        {% endif %}
       {% else %}
         {% if ans and ans.text_answer %}
         <div style="font-size:13px;color:var(--text2);background:var(--surface2);padding:8px 12px;border-radius:6px;border-left:3px solid var(--purple-border)">
@@ -37,6 +41,10 @@
     </div>
     {% if q.type.value == 'scale' %}
     <div style="font-size:28px;font-weight:700;color:{% if ans and ans.score >= 4 %}var(--green){% elif ans and ans.score == 3 %}var(--amber){% elif ans and ans.score %}var(--red){% else %}var(--text3){% endif %}">
+      {% if ans and ans.score %}{{ ans.score }}{% else %}—{% endif %}
+    </div>
+    {% elif q.type.value == 'rating10' %}
+    <div style="font-size:28px;font-weight:700;color:{% if ans and ans.score >= 8 %}var(--green){% elif ans and ans.score >= 5 %}var(--amber){% elif ans and ans.score %}var(--red){% else %}var(--text3){% endif %}">
       {% if ans and ans.score %}{{ ans.score }}{% else %}—{% endif %}
     </div>
     {% endif %}

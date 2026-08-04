@@ -8,7 +8,7 @@ import asyncio
 from app.models.database import get_db, User, UserRole, DEPARTMENTS, POSITIONS
 from app.services.auth import (
     get_current_user_from_cookie, require_admin,
-    get_password_hash, generate_temp_password
+    get_password_hash, generate_temp_password, verify_password
 )
 from app.services.email import notify_new_user
 
@@ -152,18 +152,26 @@ async def change_password(
     request: Request,
     current_password: str = Form(...),
     new_password: str = Form(...),
+    confirm_password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    from app.services.auth import verify_password
     user = get_current_user_from_cookie(request, db)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
+    error = None
     if not verify_password(current_password, user.hashed_password):
+        error = "Senha atual incorreta."
+    elif len(new_password) < 8:
+        error = "A nova senha deve ter no mínimo 8 caracteres."
+    elif new_password != confirm_password:
+        error = "As senhas não coincidem."
+
+    if error:
         return templates.TemplateResponse("admin/profile.html", {
             "request": request,
             "current_user": user,
-            "error": "Senha atual incorreta.",
+            "error": error,
         })
 
     user.hashed_password = get_password_hash(new_password)

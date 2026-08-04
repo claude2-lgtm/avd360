@@ -182,6 +182,7 @@ class EvaluationAnswer(Base):
 
 class SurveyQuestionType(str, enum.Enum):
     scale = "scale"
+    rating10 = "rating10"
     text = "text"
 
 
@@ -193,6 +194,8 @@ class SurveyForm(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
+    opens_at = Column(DateTime, nullable=True)   # UTC; convertido de horário de Brasília
+    closes_at = Column(DateTime, nullable=True)  # UTC; convertido de horário de Brasília
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -211,7 +214,10 @@ class SurveyQuestion(Base):
     form_id = Column(Integer, ForeignKey("survey_forms.id"), nullable=False)
     group_name = Column(String(200), nullable=True)
     text = Column(Text, nullable=False)
-    type = Column(SAEnum(SurveyQuestionType), default=SurveyQuestionType.scale, nullable=False)
+    type = Column(
+        SAEnum(SurveyQuestionType, native_enum=False, create_constraint=False, length=20),
+        default=SurveyQuestionType.scale, nullable=False,
+    )
     order = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
 

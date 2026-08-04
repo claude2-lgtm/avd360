@@ -2,6 +2,11 @@
 # primeira vez, o admin pode editar/adicionar/remover perguntas pela interface
 # de "Gerenciar Formulários" — este arquivo só serve de ponto de partida.
 
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+BR_TZ = ZoneInfo("America/Sao_Paulo")
+
 SCALE_LABELS = {
     1: "Nada satisfeito",
     2: "Pouco satisfeito",
@@ -9,6 +14,38 @@ SCALE_LABELS = {
     4: "Muito satisfeito",
     5: "Extremamente satisfeito",
 }
+
+SCALE_RANGES = {
+    "scale": range(1, 6),
+    "rating10": range(1, 11),
+}
+
+
+def br_to_utc(dt_str):
+    """Converte string de <input type="datetime-local"> (horário de Brasília) para datetime UTC naive."""
+    if not dt_str:
+        return None
+    try:
+        local = datetime.strptime(dt_str, "%Y-%m-%dT%H:%M").replace(tzinfo=BR_TZ)
+        return local.astimezone(timezone.utc).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def utc_to_br_input(dt):
+    """Converte datetime UTC naive para string compatível com <input type="datetime-local">, em horário de Brasília."""
+    if not dt:
+        return ""
+    br = dt.replace(tzinfo=timezone.utc).astimezone(BR_TZ)
+    return br.strftime("%Y-%m-%dT%H:%M")
+
+
+def utc_to_br_display(dt):
+    """Converte datetime UTC naive para string legível em horário de Brasília."""
+    if not dt:
+        return None
+    br = dt.replace(tzinfo=timezone.utc).astimezone(BR_TZ)
+    return br.strftime("%d/%m/%Y %H:%M")
 
 SEED_FORMS = [
     {

@@ -18,6 +18,20 @@
       <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">Descrição (opcional)</div>
       <textarea name="description" class="form-control" rows="3" placeholder="Uma frase explicando o objetivo desta pesquisa"></textarea>
     </div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500">Prazo (opcional — horário de Brasília)</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" style="font-weight:400">Abre em</label>
+          <input type="datetime-local" name="opens_at" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-weight:400">Encerra em</label>
+          <input type="datetime-local" name="closes_at" class="form-control">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">Deixe em branco para não limitar o período de resposta.</div>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <a href="/surveys/manage" class="btn btn-outline">Cancelar</a>
       <button type="submit" class="btn btn-primary">Criar e adicionar perguntas</button>
