@@ -268,7 +268,7 @@ async def close_cycle(cycle_id: int, request: Request, db: Session = Depends(get
 async def delete_cycle(cycle_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)
     cycle = db.query(EvaluationCycle).get(cycle_id)
-    if cycle and cycle.status == CycleStatus.draft:
+    if cycle:
         db.delete(cycle)
         db.commit()
     return RedirectResponse("/cycles?msg=deleted", status_code=302)

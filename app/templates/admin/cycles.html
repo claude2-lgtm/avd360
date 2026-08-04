@@ -64,11 +64,10 @@
         {% if c.status.value == 'closed' %}
         <a href="/evaluations/reports/cycle/{{ c.id }}" class="btn btn-outline btn-sm">Relatórios</a>
         {% endif %}
-        {% if c.status.value == 'draft' %}
-        <form method="POST" action="/cycles/{{ c.id }}/delete" onsubmit="return confirm('Excluir ciclo?')">
+        <form method="POST" action="/cycles/{{ c.id }}/delete"
+              onsubmit="return confirm('{% if c.status.value == 'draft' %}Excluir este ciclo?{% else %}Este ciclo já tem avaliações em andamento ou concluídas. Excluir vai apagar permanentemente todas as designações e avaliações associadas a ele. Tem certeza?{% endif %}')">
           <button type="submit" class="btn btn-danger btn-sm" style="width:100%">Excluir</button>
         </form>
-        {% endif %}
       </div>
     </div>
   </div>
