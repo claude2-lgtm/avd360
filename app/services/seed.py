@@ -776,9 +776,41 @@ def patch_projetos_coordenador_batch(db: Session):
     db.commit()
 
 
+# (email, full legal name) — Comercial / Assessor Comercial batch,
+# also reporting to Gabriela Vila de Melo Figueiredo.
+COMERCIAL_ASSESSOR_BATCH = [
+    ("gustavomeira@grupogestao.co", "Gustavo Meira Campos Vasconcelos"),
+    ("karen@grupogestao.co", "Karen Vitória Costa Barreto"),
+    ("marinamancebo@grupogestao.co", "Marina Lariú Mancebo"),
+    ("rafael@grupogestao.co", "Rafael Nogueira Torres"),
+    ("samuel@grupogestao.co", "Samuel Pechir Gomes Manzur"),
+]
+
+
+def patch_comercial_batch(db: Session):
+    """One-off data-entry fix, same idea as patch_projetos_batch() but for
+    the Comercial / Assessor Comercial batch. Only touches accounts whose
+    department is still blank."""
+    manager = db.query(User).filter(User.email == "gestao@grupogestao.co").first()
+    if not manager:
+        return
+
+    for email, full_name in COMERCIAL_ASSESSOR_BATCH:
+        u = db.query(User).filter(User.email == email).first()
+        if not u or u.department:
+            continue
+        u.name = full_name
+        u.department = "Comercial"
+        u.position = "Assessor Comercial"
+        u.manager_id = manager.id
+
+    db.commit()
+
+
 def run_seed(db: Session):
     seed_competencies(db)
     seed_admin(db)
     seed_collaborators(db)
     patch_projetos_batch(db)
     patch_projetos_coordenador_batch(db)
+    patch_comercial_batch(db)
