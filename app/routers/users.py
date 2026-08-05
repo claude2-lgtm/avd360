@@ -19,14 +19,14 @@ templates = make_templates()
 @router.get("", response_class=HTMLResponse)
 async def list_users(request: Request, db: Session = Depends(get_db)):
     user = require_admin(request, db)
-    users = db.query(User).filter(User.is_active == True).order_by(User.name).all()
+    users = db.query(User).order_by(User.is_active.desc(), User.name).all()
     return templates.TemplateResponse("admin/users.html", {
         "request": request,
         "current_user": user,
         "users": users,
         "departments": DEPARTMENTS,
         "positions": POSITIONS,
-        "all_users": users,
+        "all_users": [u for u in users if u.is_active],
     })
 
 
@@ -45,14 +45,14 @@ async def create_user(
 
     existing = db.query(User).filter(User.email == email.strip().lower()).first()
     if existing:
-        users = db.query(User).filter(User.is_active == True).all()
+        users = db.query(User).order_by(User.is_active.desc(), User.name).all()
         return templates.TemplateResponse("admin/users.html", {
             "request": request,
             "current_user": get_current_user_from_cookie(request, db),
             "users": users,
             "departments": DEPARTMENTS,
             "positions": POSITIONS,
-            "all_users": users,
+            "all_users": [u for u in users if u.is_active],
             "error": f"E-mail {email} já cadastrado.",
         })
 
@@ -66,14 +66,32 @@ async def create_user(
         department=department,
         position=position,
         manager_id=manager_id if manager_id else None,
-        is_active=True,
+        is_active=False,
     )
     db.add(new_user)
     db.commit()
 
-    asyncio.create_task(notify_new_user(new_user.email, new_user.name, temp_pwd))
-
     return RedirectResponse("/users?msg=created", status_code=302)
+
+
+@router.post("/{user_id}/activate")
+async def activate_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    target = db.query(User).get(user_id)
+    if target:
+        target.is_active = True
+        db.commit()
+    return RedirectResponse("/users?msg=activated", status_code=302)
+
+
+@router.post("/{user_id}/send-welcome-email")
+async def send_welcome_email(user_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    target = db.query(User).get(user_id)
+    if target and target.temp_password:
+        asyncio.create_task(notify_new_user(target.email, target.name, target.temp_password))
+        return RedirectResponse("/users?msg=email_sent", status_code=302)
+    return RedirectResponse("/users?msg=email_error", status_code=302)
 
 
 @router.get("/{user_id}/edit", response_class=HTMLResponse)

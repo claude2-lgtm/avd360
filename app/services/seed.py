@@ -651,18 +651,25 @@ COLLABORATORS_SEED = [
 
 
 def seed_collaborators(db: Session):
-    """Create the initial batch of collaborator accounts if missing."""
+    """Create the initial batch of collaborator accounts if missing, pending
+    activation by an admin (no login, no welcome e-mail until then)."""
     from app.models.database import UserRole
     for name, email, password in COLLABORATORS_SEED:
         existing = db.query(User).filter(User.email == email).first()
         if existing:
+            # Fix up accounts created by an earlier version of this seed that
+            # activated them immediately — leaves any admin's own changes alone.
+            if existing.is_active and existing.temp_password is None:
+                existing.is_active = False
+                existing.temp_password = password
             continue
         db.add(User(
             name=name,
             email=email,
             hashed_password=get_password_hash(password),
+            temp_password=password,
             role=UserRole.collaborator,
-            is_active=True,
+            is_active=False,
         ))
     db.commit()
 

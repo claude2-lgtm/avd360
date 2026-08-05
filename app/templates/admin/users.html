@@ -31,6 +31,7 @@
           <th>Cargo</th>
           <th>Superior direto</th>
           <th>Perfil</th>
+          <th>Status</th>
           <th>Senha temp.</th>
           <th>Ações</th>
         </tr>
@@ -58,6 +59,13 @@
             {% endif %}
           </td>
           <td>
+            {% if u.is_active %}
+            <span class="badge badge-green">Ativo</span>
+            {% else %}
+            <span class="badge badge-gray">Pendente</span>
+            {% endif %}
+          </td>
+          <td>
             {% if u.temp_password %}
             <code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px">{{ u.temp_password }}</code>
             {% else %}
@@ -65,11 +73,22 @@
             {% endif %}
           </td>
           <td>
-            <div style="display:flex;gap:6px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
               <a href="/users/{{ u.id }}/edit" class="btn btn-outline btn-sm">Editar</a>
-              <form method="POST" action="/users/{{ u.id }}/delete" onsubmit="return confirm('Remover {{ u.name }}?')">
-                <button type="submit" class="btn btn-danger btn-sm">Remover</button>
+              {% if u.temp_password %}
+              <form method="POST" action="/users/{{ u.id }}/send-welcome-email">
+                <button type="submit" class="btn btn-outline btn-sm">Enviar e-mail</button>
               </form>
+              {% endif %}
+              {% if u.is_active %}
+              <form method="POST" action="/users/{{ u.id }}/delete" onsubmit="return confirm('Desativar {{ u.name }}?')">
+                <button type="submit" class="btn btn-danger btn-sm">Desativar</button>
+              </form>
+              {% else %}
+              <form method="POST" action="/users/{{ u.id }}/activate">
+                <button type="submit" class="btn btn-primary btn-sm">Ativar</button>
+              </form>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -136,7 +155,9 @@
         </div>
       </div>
       <div class="alert alert-info" style="font-size:12px">
-        Uma senha temporária será gerada automaticamente e exibida na listagem.
+        Uma senha temporária será gerada e exibida na listagem. O colaborador fica
+        <strong>pendente</strong> (sem acesso) até você clicar em "Ativar", e o e-mail de
+        boas-vindas só é enviado se você clicar em "Enviar e-mail".
       </div>
       <div class="modal-footer">
         <button type="button" onclick="document.getElementById('modal-create').classList.remove('open')" class="btn btn-outline">Cancelar</button>
