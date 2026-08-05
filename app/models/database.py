@@ -1,6 +1,6 @@
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, Boolean,
-    DateTime, Text, ForeignKey, Enum as SAEnum
+    DateTime, Text, ForeignKey, Enum as SAEnum, text
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from sqlalchemy.sql import func
@@ -267,3 +267,22 @@ def get_db():
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    run_migrations()
+
+
+def run_migrations():
+    """Patches columns on tables that already existed in production before
+    they were added/changed here, since create_all() only creates missing
+    tables and never alters existing ones. Safe to run on every startup."""
+    if not DATABASE_URL.startswith("postgresql"):
+        return
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE survey_forms ADD COLUMN IF NOT EXISTS opens_at TIMESTAMP"
+        ))
+        conn.execute(text(
+            "ALTER TABLE survey_forms ADD COLUMN IF NOT EXISTS closes_at TIMESTAMP"
+        ))
+        conn.execute(text(
+            "ALTER TABLE survey_questions ALTER COLUMN type TYPE VARCHAR(20) USING type::text"
+        ))
