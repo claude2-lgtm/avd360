@@ -601,6 +601,73 @@ def seed_admin(db: Session):
     print("✓ Admin criado: admin@grupogestao.com.br / Admin@2024")
 
 
+# (name, email, password) — password is the collaborator's first name.
+# department/position left blank; an admin assigns those later via /users.
+COLLABORATORS_SEED = [
+    ("Allegra", "allegra@grupogestao.co", "allegra"),
+    ("Amin", "amin@grupogestao.co", "amin"),
+    ("Ana Ulhoa", "anaulhoa@grupogestao.co", "ana"),
+    ("Ana Brentano", "anabrentano@grupogestao.co", "ana"),
+    ("Bernardo Valentim", "bernardovalentim@grupogestao.co", "bernardo"),
+    ("Cecília", "cecilia@grupogestao.co", "cecilia"),
+    ("Davi Mescouto", "davimescouto@grupogestao.co", "davi"),
+    ("Davi Takami", "davitakami@grupogestao.co", "davi"),
+    ("Eduardo Breide", "eduardobreide@grupogestao.co", "eduardo"),
+    ("Enzo Weyne", "enzoweyne@grupogestao.co", "enzo"),
+    ("Enzo Marques", "enzomarques@grupogestao.co", "enzo"),
+    ("Evelyn", "evelyn@grupogestao.co", "evelyn"),
+    ("Felipe Charbel", "felipecharbel@grupogestao.co", "felipe"),
+    ("Felipe Pohl", "felipepohl@grupogestao.co", "felipe"),
+    ("Gabriel Gadelha", "gabrielgadelha@grupogestao.co", "gabriel"),
+    ("Gabriel Linhares", "gabriellinhares@grupogestao.co", "gabriel"),
+    ("Gabriel Ávila", "gabrielavila@grupogestao.co", "gabriel"),
+    ("Gustavo Meira", "gustavomeira@grupogestao.co", "gustavo"),
+    ("Isabela Cabral", "isabelacabral@grupogestao.co", "isabela"),
+    ("Isabella Moreira", "isabellamoreira@grupogestao.co", "isabella"),
+    ("Karen", "karen@grupogestao.co", "karen"),
+    ("Laura", "laura@grupogestao.co", "laura"),
+    ("Lavínia Ferraz", "laviniaferraz@grupogestao.co", "lavinia"),
+    ("Louise", "louise@grupogestao.co", "louise"),
+    ("Lucas Lambach", "lucaslambach@grupogestao.co", "lucas"),
+    ("Luiz Gustavo", "luizgustavo@grupogestao.co", "luizgustavo"),
+    ("Manuella", "manuella@grupogestao.co", "manuella"),
+    ("Marcos Furtado", "marcosfurtado@grupogestao.co", "marcos"),
+    ("Maria Eduarda Passos", "mariaeduardapassos@grupogestao.co", "mariaeduarda"),
+    ("Maria Eduarda Sollero", "mariaeduardasollero@grupogestao.co", "mariaeduarda"),
+    ("Marina Mancebo", "marinamancebo@grupogestao.co", "marina"),
+    ("Marina Medeiros", "marinamedeiros@grupogestao.co", "marina"),
+    ("Mateus Barcelos", "mateusbarcelos@grupogestao.co", "mateus"),
+    ("Nicole Vollstedt", "nicolevollstedt@grupogestao.co", "nicole"),
+    ("Oto", "oto@grupogestao.co", "oto"),
+    ("Pedro Aquino", "pedroaquino@grupogestao.co", "pedro"),
+    ("Rafael Leivas", "rafaelleivas@grupogestao.co", "rafael"),
+    ("Rafael", "rafael@grupogestao.co", "rafael"),
+    ("Rafaela Gutierrez", "rafaelagutierrez@grupogestao.co", "rafaela"),
+    ("Rafaela", "rafaela@grupogestao.co", "rafaela"),
+    ("Renato", "renato@grupogestao.co", "renato"),
+    ("Samuel", "samuel@grupogestao.co", "samuel"),
+    ("Tiago Zamboni", "tiagozamboni@grupogestao.co", "tiago"),
+]
+
+
+def seed_collaborators(db: Session):
+    """Create the initial batch of collaborator accounts if missing."""
+    from app.models.database import UserRole
+    for name, email, password in COLLABORATORS_SEED:
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            continue
+        db.add(User(
+            name=name,
+            email=email,
+            hashed_password=get_password_hash(password),
+            role=UserRole.collaborator,
+            is_active=True,
+        ))
+    db.commit()
+
+
 def run_seed(db: Session):
     seed_competencies(db)
     seed_admin(db)
+    seed_collaborators(db)
