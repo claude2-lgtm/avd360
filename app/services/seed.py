@@ -674,7 +674,78 @@ def seed_collaborators(db: Session):
     db.commit()
 
 
+# (email, full legal name) — Projetos / Consultor de Projetos batch,
+# reporting to Gabriela Vila de Melo Figueiredo (gestao@grupogestao.co).
+PROJETOS_CONSULTOR_BATCH = [
+    ("tiagozamboni@grupogestao.co", "Tiago Zamboni Rodrigues da Cunha"),
+    ("gabrielgadelha@grupogestao.co", "Gabriel Costa Gadelha"),
+    ("gabriellinhares@grupogestao.co", "Gabriel Linhares Sautchuk"),
+    ("davimescouto@grupogestao.co", "Davi Mescouto Cabral Furtado"),
+    ("anabrentano@grupogestao.co", "Ana Mota Brentano"),
+    ("luizgustavo@grupogestao.co", "Luiz Gustavo Snoeck Neiva Amaral"),
+    ("renato@grupogestao.co", "Renato Gomez Lunetta"),
+    ("louise@grupogestao.co", "Louise Ormond Ferreira Valin"),
+    ("manuella@grupogestao.co", "Manuella Rodrigues Bittencourt"),
+    ("amin@grupogestao.co", "Amin De Alcântara Assaf Bastos Rebello"),
+    ("oto@grupogestao.co", "Oto Carneiro Cavalcanti de Albuquerque"),
+    ("felipecharbel@grupogestao.co", "Felipe Charbel Janiques Rebouças"),
+    ("enzoweyne@grupogestao.co", "Enzo Antero de Carvalho Weyne"),
+    ("isabellamoreira@grupogestao.co", "Isabella Moreira Batista"),
+    ("allegra@grupogestao.co", "Allegra Cia Penoni"),
+    ("cecilia@grupogestao.co", "Cecília Da Costa Beck"),
+    ("davitakami@grupogestao.co", "Davi Sousa de Lima Takami"),
+    ("isabelacabral@grupogestao.co", "Isabela Cabral Pellicione Sulz Gonsavels"),
+    ("marinamedeiros@grupogestao.co", "Marina Medeiros Dantas Mendes Rocha"),
+    ("laura@grupogestao.co", "Laura Rocha Moreira Feitosa"),
+    ("anaulhoa@grupogestao.co", "Ana Laura Ulhoa Barreto Ribeiro"),
+    ("mariaeduardasollero@grupogestao.co", "Maria Eduarda Sollero Mazzoni"),
+    ("felipepohl@grupogestao.co", "Felipe Cunha Rego Filgueiras Pohl"),
+    ("evelyn@grupogestao.co", "Evelyn de Oliveira Martins Gomes"),
+    ("rafaelagutierrez@grupogestao.co", "Rafaela Gutierrez Mota"),
+]
+
+
+def patch_projetos_batch(db: Session):
+    """One-off data-entry fix: creates the Projetos manager and assigns full
+    legal names, department, position and manager for her 25 reports. Only
+    touches accounts whose department is still blank, so re-running this on
+    every startup won't clobber anything an admin has since edited."""
+    from app.models.database import UserRole
+
+    manager = db.query(User).filter(User.email == "gestao@grupogestao.co").first()
+    if not manager:
+        manager = User(
+            name="Gabriela Vila de Melo Figueiredo",
+            email="gestao@grupogestao.co",
+            hashed_password=get_password_hash("gabriela"),
+            temp_password="gabriela",
+            role=UserRole.collaborator,
+            is_active=False,
+        )
+        db.add(manager)
+        db.flush()
+
+    # "Ana Ulhoa"'s real first name is compound ("Ana Laura"); the earlier
+    # guess set her password to "ana" — fix it to match the compound-name rule.
+    ana = db.query(User).filter(User.email == "anaulhoa@grupogestao.co").first()
+    if ana and ana.temp_password == "ana":
+        ana.hashed_password = get_password_hash("analaura")
+        ana.temp_password = "analaura"
+
+    for email, full_name in PROJETOS_CONSULTOR_BATCH:
+        u = db.query(User).filter(User.email == email).first()
+        if not u or u.department:
+            continue
+        u.name = full_name
+        u.department = "Projetos"
+        u.position = "Consultor de Projetos"
+        u.manager_id = manager.id
+
+    db.commit()
+
+
 def run_seed(db: Session):
     seed_competencies(db)
     seed_admin(db)
     seed_collaborators(db)
+    patch_projetos_batch(db)
