@@ -744,8 +744,41 @@ def patch_projetos_batch(db: Session):
     db.commit()
 
 
+# (email, full legal name) — Projetos / Coordenador de Projetos batch,
+# also reporting to Gabriela Vila de Melo Figueiredo.
+PROJETOS_COORDENADOR_BATCH = [
+    ("laviniaferraz@grupogestao.co", "Lavinia Ferraz Lavenere Machado"),
+    ("bernardovalentim@grupogestao.co", "Bernardo Valentim Rodrigues de Azevedo"),
+    ("rafaela@grupogestao.co", "Rafaela Maria Varandas Carvalho"),
+    ("lucaslambach@grupogestao.co", "Lucas Nogueira da Gama Lambach"),
+    ("eduardobreide@grupogestao.co", "Eduardo Breide Pessoa Guerra"),
+    ("enzomarques@grupogestao.co", "Enzo Marques Recch"),
+]
+
+
+def patch_projetos_coordenador_batch(db: Session):
+    """One-off data-entry fix, same idea as patch_projetos_batch() but for
+    the Projetos / Coordenador de Projetos batch. Only touches accounts
+    whose department is still blank."""
+    manager = db.query(User).filter(User.email == "gestao@grupogestao.co").first()
+    if not manager:
+        return
+
+    for email, full_name in PROJETOS_COORDENADOR_BATCH:
+        u = db.query(User).filter(User.email == email).first()
+        if not u or u.department:
+            continue
+        u.name = full_name
+        u.department = "Projetos"
+        u.position = "Coordenador de Projetos"
+        u.manager_id = manager.id
+
+    db.commit()
+
+
 def run_seed(db: Session):
     seed_competencies(db)
     seed_admin(db)
     seed_collaborators(db)
     patch_projetos_batch(db)
+    patch_projetos_coordenador_batch(db)
