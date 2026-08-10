@@ -1,14 +1,14 @@
 import os
-import asyncio
 from typing import List
+
+import httpx
 
 
 EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@grupogestao.com.br")
+
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
 async def send_email(to: List[str], subject: str, body_html: str):
@@ -16,24 +16,20 @@ async def send_email(to: List[str], subject: str, body_html: str):
         print(f"[EMAIL SIMULADO] Para: {to} | Assunto: {subject}")
         return True
     try:
-        import aiosmtplib
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
-
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = EMAIL_FROM
-        msg["To"] = ", ".join(to)
-        msg.attach(MIMEText(body_html, "html"))
-
-        await aiosmtplib.send(
-            msg,
-            hostname=SMTP_HOST,
-            port=SMTP_PORT,
-            username=SMTP_USER,
-            password=SMTP_PASSWORD,
-            start_tls=True,
-        )
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                RESEND_API_URL,
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                json={
+                    "from": EMAIL_FROM,
+                    "to": to,
+                    "subject": subject,
+                    "html": body_html,
+                },
+            )
+        if response.status_code >= 400:
+            print(f"[EMAIL ERRO] {response.status_code} {response.text}")
+            return False
         return True
     except Exception as e:
         print(f"[EMAIL ERRO] {e}")

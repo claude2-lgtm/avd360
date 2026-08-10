@@ -104,17 +104,20 @@ O admin pode adicionar/remover designações manualmente em qualquer caso.
 
 ## 📧 Configurar e-mail (opcional)
 
-Edite o arquivo `.env`:
+O envio é feito via API do [Resend](https://resend.com) (não usa SMTP direto, pois muitas hospedagens como o Render bloqueiam as portas SMTP tradicionais).
+
+Edite o arquivo `.env` (ou as Environment Variables da hospedagem):
 ```
 EMAIL_ENABLED=true
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=seu@email.com
-SMTP_PASSWORD=sua_senha_de_app
+RESEND_API_KEY=re_xxxxxxxxxxxx
 EMAIL_FROM=noreply@grupogestao.com.br
 ```
 
-Para Gmail, use uma **Senha de App** (não a senha normal).
+Passos:
+1. Crie uma conta em [resend.com](https://resend.com).
+2. Em **Domains**, adicione o domínio do remetente (ex: `grupogestao.co`) e configure os registros DNS solicitados para verificá-lo.
+3. Em **API Keys**, gere uma chave e use como `RESEND_API_KEY`.
+4. `EMAIL_FROM` deve ser um endereço do domínio verificado (ex: `gp@grupogestao.co`).
 
 ---
 
