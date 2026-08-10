@@ -77,4 +77,4 @@ async def notify_new_user(user_email: str, user_name: str, temp_password: str):
       </div>
     </div>
     """
-    await send_email([user_email], "AVD 360° — Bem-vindo ao sistema!", body)
+    return await send_email([user_email], "AVD 360° — Bem-vindo ao sistema!", body)

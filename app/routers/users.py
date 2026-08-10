@@ -3,7 +3,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from app.templates_config import make_templates
 from sqlalchemy.orm import Session
 from typing import Optional
-import asyncio
 
 from app.models.database import get_db, User, UserRole, DEPARTMENTS, POSITIONS
 from app.services.auth import (
@@ -89,8 +88,9 @@ async def send_welcome_email(user_id: int, request: Request, db: Session = Depen
     require_admin(request, db)
     target = db.query(User).get(user_id)
     if target and target.temp_password:
-        asyncio.create_task(notify_new_user(target.email, target.name, target.temp_password))
-        return RedirectResponse("/users?msg=email_sent", status_code=302)
+        sent = await notify_new_user(target.email, target.name, target.temp_password)
+        if sent:
+            return RedirectResponse("/users?msg=email_sent", status_code=302)
     return RedirectResponse("/users?msg=email_error", status_code=302)
 
 

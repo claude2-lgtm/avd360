@@ -340,6 +340,10 @@
         <div class="alert alert-success">✓ Avaliação enviada com sucesso!</div>
         {% elif request.query_params.get('msg') == 'activated' %}
         <div class="alert alert-success">✓ Ciclo ativado. Colaboradores notificados por e-mail.</div>
+        {% elif request.query_params.get('msg') == 'email_sent' %}
+        <div class="alert alert-success">✓ E-mail enviado com sucesso.</div>
+        {% elif request.query_params.get('msg') == 'email_error' %}
+        <div class="alert alert-error">✗ Falha ao enviar o e-mail. Verifique a configuração de SMTP.</div>
         {% endif %}
       {% endblock %}
       {% block content %}{% endblock %}
