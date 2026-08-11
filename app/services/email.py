@@ -7,6 +7,7 @@ import httpx
 EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@grupogestao.com.br")
+APP_URL = os.getenv("APP_URL", "https://avd360.onrender.com")
 
 SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
 
@@ -47,7 +48,9 @@ async def notify_cycle_opened(users: list, cycle_name: str, end_date: str):
             <p>Olá, <strong>{user.name}</strong>!</p>
             <p>O ciclo de avaliação <strong>{cycle_name}</strong> foi aberto.</p>
             <p>Você tem avaliações pendentes. O prazo final é <strong>{end_date}</strong>.</p>
-            <p>Acesse o sistema para responder suas avaliações.</p>
+            <p style="text-align:center;margin:24px 0">
+              <a href="{APP_URL}" style="background:#6F12FF;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Acessar o sistema</a>
+            </p>
             <br>
             <p style="color:#888;font-size:12px">Grupo Gestão Consultoria</p>
           </div>
@@ -68,6 +71,9 @@ async def notify_new_user(user_email: str, user_name: str, temp_password: str):
         <p><strong>E-mail:</strong> {user_email}<br>
         <strong>Senha temporária:</strong> {temp_password}</p>
         <p>Acesse o sistema e altere sua senha no primeiro login.</p>
+        <p style="text-align:center;margin:24px 0">
+          <a href="{APP_URL}" style="background:#6F12FF;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Acessar o sistema</a>
+        </p>
         <br>
         <p style="color:#888;font-size:12px">Grupo Gestão Consultoria</p>
       </div>
