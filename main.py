@@ -7,7 +7,7 @@ import os
 from app.models.database import create_tables, SessionLocal
 from app.services.seed import run_seed
 from app.services.surveys_data import seed_surveys
-from app.routers import auth, dashboard, users, cycles, evaluations, competencies, surveys
+from app.routers import auth, dashboard, users, cycles, evaluations, competencies, surveys, reminders
 
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ app.include_router(cycles.router)
 app.include_router(evaluations.router)
 app.include_router(competencies.router)
 app.include_router(surveys.router)
+app.include_router(reminders.router)
 
 
 @app.get("/")

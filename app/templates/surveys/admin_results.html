@@ -3,6 +3,12 @@
 {% block page_title %}Resultados — {{ form_obj.title }}{% endblock %}
 {% block breadcrumb %}<a href="/surveys/manage">Formulários</a> / Resultados / {{ period }}{% endblock %}
 
+{% block topbar_actions %}
+{% if responses %}
+<a href="/surveys/admin/{{ survey_type }}/export.csv?period={{ period }}" class="btn btn-outline btn-sm">Exportar CSV</a>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <!-- Resumo -->
 <div class="stats-grid" style="margin-bottom:20px">
@@ -33,6 +39,17 @@
       <div class="card-subtitle">Distribuição das respostas de todos os colaboradores</div>
     </div>
   </div>
+
+  <form method="GET" style="padding:12px 0;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px">
+    <input type="hidden" name="period" value="{{ period }}">
+    <label class="form-label" style="margin:0">Filtrar por pergunta</label>
+    <select name="question_id" class="form-control" style="max-width:420px;width:auto" onchange="this.form.submit()">
+      <option value="">Todas as perguntas</option>
+      {% for q in form_obj.questions %}
+      <option value="{{ q.id }}" {% if selected_question_id == q.id %}selected{% endif %}>{{ q.text }}</option>
+      {% endfor %}
+    </select>
+  </form>
 
   {% for group_name, questions in groups.items() %}
     <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:16px 0 8px;border-top:1px solid var(--border)">{{ group_name }}</div>

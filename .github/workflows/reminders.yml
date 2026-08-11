@@ -1,0 +1,17 @@
+name: AVD 360 Deadline Reminders
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reminder endpoint
+        run: |
+          curl -sS -X POST "https://avd360.onrender.com/internal/reminders/run" \
+            -H "X-Reminder-Secret: ${{ secrets.REMINDER_SECRET }}" \
+            --max-time 90 \
+            --fail-with-body

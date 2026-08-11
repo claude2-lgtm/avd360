@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Request, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from app.templates_config import make_templates
 from sqlalchemy.orm import Session
 from datetime import datetime
 import re
+import csv
+import io
 
 from app.models.database import (
     get_db, SurveyForm, SurveyQuestion, SurveyQuestionType,
@@ -193,6 +195,8 @@ async def manage_update_form(form_id: int, request: Request, db: Session = Depen
         form.title = title
     form.description = description or None
     form.opens_at = opens_at
+    if closes_at != form.closes_at:
+        form.reminder_sent = False
     form.closes_at = closes_at
     db.commit()
 
@@ -496,6 +500,8 @@ async def admin_survey_results(survey_type: str, request: Request, db: Session =
         raise HTTPException(404)
 
     period = request.query_params.get("period") or current_period()
+    question_id_raw = request.query_params.get("question_id")
+    selected_question_id = int(question_id_raw) if question_id_raw and question_id_raw.isdigit() else None
 
     responses = db.query(SurveyResponse).filter(
         SurveyResponse.form_id == form.id,
@@ -544,6 +550,13 @@ async def admin_survey_results(survey_type: str, request: Request, db: Session =
     ]
     overall_average = round(sum(overall_scores) / len(overall_scores), 2) if overall_scores else None
 
+    groups_all = _grouped_questions(form)
+    if selected_question_id:
+        groups = {g: [q for q in qs if q.id == selected_question_id] for g, qs in groups_all.items()}
+        groups = {g: qs for g, qs in groups.items() if qs}
+    else:
+        groups = groups_all
+
     return templates.TemplateResponse("surveys/admin_results.html", {
         "request": request,
         "current_user": user,
@@ -556,9 +569,45 @@ async def admin_survey_results(survey_type: str, request: Request, db: Session =
         "distributions": distributions,
         "text_answers": text_answers,
         "overall_average": overall_average,
-        "groups": _grouped_questions(form),
+        "groups": groups,
+        "selected_question_id": selected_question_id,
         "scale_labels": SCALE_LABELS,
     })
+
+
+@router.get("/admin/{survey_type}/export.csv")
+async def export_survey_csv(survey_type: str, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    form = db.query(SurveyForm).filter(SurveyForm.key == survey_type).first()
+    if not form:
+        raise HTTPException(404)
+
+    period = request.query_params.get("period") or current_period()
+    responses = db.query(SurveyResponse).filter(
+        SurveyResponse.form_id == form.id,
+        SurveyResponse.period == period,
+        SurveyResponse.status == EvaluationStatus.submitted,
+    ).all()
+
+    buf = io.StringIO()
+    buf.write("﻿")
+    writer = csv.writer(buf)
+    writer.writerow(["Respondente", "Pergunta", "Resposta", "Enviado em"])
+    for r in responses:
+        submitted = r.submitted_at.strftime("%d/%m/%Y %H:%M") if r.submitted_at else ""
+        by_q = {a.question_id: a for a in r.answers}
+        for q in form.questions:
+            a = by_q.get(q.id)
+            if not a:
+                continue
+            value = a.score if a.score is not None else (a.text_answer or "")
+            writer.writerow([r.user.name, q.text, value, submitted])
+
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="avd360_{survey_type}_{period}.csv"'},
+    )
 
 
 @router.get("/admin/{survey_type}/results/{user_id}", response_class=HTMLResponse)

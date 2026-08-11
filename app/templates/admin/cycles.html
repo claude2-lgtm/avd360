@@ -64,6 +64,9 @@
         {% if c.status.value == 'closed' %}
         <a href="/evaluations/reports/cycle/{{ c.id }}" class="btn btn-outline btn-sm">Relatórios</a>
         {% endif %}
+        {% if prog.submitted > 0 %}
+        <a href="/cycles/{{ c.id }}/export.csv" class="btn btn-outline btn-sm">Exportar CSV</a>
+        {% endif %}
         <form method="POST" action="/cycles/{{ c.id }}/delete"
               onsubmit="return confirm('{% if c.status.value == 'draft' %}Excluir este ciclo?{% else %}Este ciclo já tem avaliações em andamento ou concluídas. Excluir vai apagar permanentemente todas as designações e avaliações associadas a ele. Tem certeza?{% endif %}')">
           <button type="submit" class="btn btn-danger btn-sm" style="width:100%">Excluir</button>

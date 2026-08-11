@@ -59,6 +59,50 @@ async def notify_cycle_opened(users: list, cycle_name: str, end_date: str):
         await send_email([user.email], f"AVD 360° — Avaliação aberta: {cycle_name}", body)
 
 
+async def notify_cycle_deadline_reminder(users: list, cycle_name: str, end_date: str):
+    for user in users:
+        body = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+          <div style="background:#6F12FF;padding:24px;border-radius:8px 8px 0 0">
+            <h1 style="color:white;margin:0;font-size:20px">AVD 360° | Grupo Gestão</h1>
+          </div>
+          <div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px">
+            <p>Olá, <strong>{user.name}</strong>!</p>
+            <p>⏰ O prazo do ciclo <strong>{cycle_name}</strong> está terminando em breve — <strong>{end_date}</strong>.</p>
+            <p>Você ainda tem avaliações pendentes. Complete-as antes do encerramento.</p>
+            <p style="text-align:center;margin:24px 0">
+              <a href="{APP_URL}" style="background:#6F12FF;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Completar avaliações</a>
+            </p>
+            <br>
+            <p style="color:#888;font-size:12px">Grupo Gestão Consultoria</p>
+          </div>
+        </div>
+        """
+        await send_email([user.email], f"AVD 360° — Prazo terminando: {cycle_name}", body)
+
+
+async def notify_survey_deadline_reminder(users: list, survey_title: str, survey_key: str, closes_at: str):
+    for user in users:
+        body = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+          <div style="background:#6F12FF;padding:24px;border-radius:8px 8px 0 0">
+            <h1 style="color:white;margin:0;font-size:20px">AVD 360° | Grupo Gestão</h1>
+          </div>
+          <div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px">
+            <p>Olá, <strong>{user.name}</strong>!</p>
+            <p>⏰ O prazo da pesquisa <strong>{survey_title}</strong> está terminando em breve — <strong>{closes_at}</strong> (horário de Brasília).</p>
+            <p>Você ainda não respondeu. Responda antes do encerramento.</p>
+            <p style="text-align:center;margin:24px 0">
+              <a href="{APP_URL}/surveys/{survey_key}" style="background:#6F12FF;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Responder agora</a>
+            </p>
+            <br>
+            <p style="color:#888;font-size:12px">Grupo Gestão Consultoria</p>
+          </div>
+        </div>
+        """
+        await send_email([user.email], f"AVD 360° — Prazo terminando: {survey_title}", body)
+
+
 async def notify_new_user(user_email: str, user_name: str, temp_password: str):
     body = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">

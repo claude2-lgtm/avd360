@@ -85,6 +85,9 @@
       <div style="margin-top:12px;display:flex;gap:8px">
         <a href="/cycles/{{ active_cycle.id }}/assignments" class="btn btn-outline btn-sm">Gerenciar designações</a>
         <a href="/evaluations/reports/cycle/{{ active_cycle.id }}" class="btn btn-primary btn-sm">Ver relatórios</a>
+        {% if cycle_stats and cycle_stats.submitted > 0 %}
+        <a href="/cycles/{{ active_cycle.id }}/export.csv" class="btn btn-outline btn-sm">Exportar CSV</a>
+        {% endif %}
       </div>
     </div>
     {% else %}

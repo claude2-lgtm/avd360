@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from app.templates_config import make_templates
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
 import asyncio
+import csv
+import io
 
 from app.models.database import (
     get_db, User, EvaluationCycle, CycleStatus, Evaluation,
@@ -244,6 +246,7 @@ async def activate_cycle(cycle_id: int, request: Request, db: Session = Depends(
     ).update({"status": CycleStatus.closed})
 
     cycle.status = CycleStatus.active
+    cycle.reminder_sent = False
     db.commit()
 
     # Notify all users
@@ -252,6 +255,40 @@ async def activate_cycle(cycle_id: int, request: Request, db: Session = Depends(
     asyncio.create_task(notify_cycle_opened(all_users, cycle.name, end_date_str))
 
     return RedirectResponse("/cycles?msg=activated", status_code=302)
+
+
+@router.get("/{cycle_id}/export.csv")
+async def export_cycle_csv(cycle_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    cycle = db.query(EvaluationCycle).get(cycle_id)
+    if not cycle:
+        raise HTTPException(404)
+
+    evaluations = db.query(Evaluation).filter(
+        Evaluation.cycle_id == cycle_id,
+        Evaluation.status == EvaluationStatus.submitted,
+    ).all()
+
+    buf = io.StringIO()
+    buf.write("﻿")
+    writer = csv.writer(buf)
+    writer.writerow(["Avaliador", "Avaliado", "Competência", "Nota", "Comentário", "Enviado em"])
+    for ev in evaluations:
+        submitted = ev.submitted_at.strftime("%d/%m/%Y %H:%M") if ev.submitted_at else ""
+        for a in ev.answers:
+            writer.writerow([
+                ev.evaluator.name, ev.evaluatee.name,
+                a.competency.name if a.competency else "",
+                a.score if a.score is not None else "",
+                a.comment or "",
+                submitted,
+            ])
+
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="avd360_ciclo_{cycle_id}.csv"'},
+    )
 
 
 @router.post("/{cycle_id}/close")

@@ -91,6 +91,7 @@ class EvaluationCycle(Base):
     status = Column(SAEnum(CycleStatus), default=CycleStatus.draft, nullable=False)
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
+    reminder_sent = Column(Boolean, default=False, nullable=False)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -196,6 +197,7 @@ class SurveyForm(Base):
     is_active = Column(Boolean, default=True)
     opens_at = Column(DateTime, nullable=True)   # UTC; convertido de horário de Brasília
     closes_at = Column(DateTime, nullable=True)  # UTC; convertido de horário de Brasília
+    reminder_sent = Column(Boolean, default=False, nullable=False)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -285,4 +287,10 @@ def run_migrations():
         ))
         conn.execute(text(
             "ALTER TABLE survey_questions ALTER COLUMN type TYPE VARCHAR(20) USING type::text"
+        ))
+        conn.execute(text(
+            "ALTER TABLE evaluation_cycles ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE NOT NULL"
+        ))
+        conn.execute(text(
+            "ALTER TABLE survey_forms ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE NOT NULL"
         ))
