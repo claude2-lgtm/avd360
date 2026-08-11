@@ -5,10 +5,10 @@ import httpx
 
 
 EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@grupogestao.com.br")
 
-RESEND_API_URL = "https://api.resend.com/emails"
+SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
 
 
 async def send_email(to: List[str], subject: str, body_html: str):
@@ -18,13 +18,13 @@ async def send_email(to: List[str], subject: str, body_html: str):
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(
-                RESEND_API_URL,
-                headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+                SENDGRID_API_URL,
+                headers={"Authorization": f"Bearer {SENDGRID_API_KEY}"},
                 json={
-                    "from": EMAIL_FROM,
-                    "to": to,
+                    "personalizations": [{"to": [{"email": addr} for addr in to]}],
+                    "from": {"email": EMAIL_FROM},
                     "subject": subject,
-                    "html": body_html,
+                    "content": [{"type": "text/html", "value": body_html}],
                 },
             )
         if response.status_code >= 400:
