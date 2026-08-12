@@ -86,17 +86,45 @@
     .sidebar-user a:hover { color: #fff; }
 
     /* ── Main content ── */
-    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-width: 0; }
     .topbar {
       background: var(--surface); border-bottom: 1px solid var(--border);
       padding: 0 28px; height: 56px;
       display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 50;
+      gap: 12px;
     }
-    .topbar .page-title { font-size: 18px; font-weight: 700; color: var(--text); font-family: 'Faustina', serif; font-style: italic; }
+    .topbar .topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .topbar .page-title { font-size: 18px; font-weight: 700; color: var(--text); font-family: 'Faustina', serif; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .topbar .breadcrumb { font-size: 12px; color: var(--text3); margin-top: 1px; }
-    .topbar-actions { display: flex; align-items: center; gap: 12px; }
+    .topbar-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
     .content { padding: 28px; flex: 1; }
+
+    /* ── Sidebar toggle (mobile) ── */
+    .sidebar-toggle {
+      display: none; background: none; border: none; cursor: pointer;
+      padding: 6px; color: var(--text); flex-shrink: 0;
+    }
+    .sidebar-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 99;
+    }
+
+    /* ── Mobile layout ── */
+    @media (max-width: 860px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        width: min(var(--sidebar-w), 82vw);
+      }
+      .app-layout.sidebar-open .sidebar { transform: translateX(0); }
+      .app-layout.sidebar-open .sidebar-backdrop { display: block; }
+      .main { margin-left: 0; }
+      .sidebar-toggle { display: inline-flex; }
+      .content { padding: 16px; }
+      .topbar { padding: 0 16px; }
+      .form-row, .form-row-3, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
 
     /* ── Cards ── */
     .card {
@@ -318,12 +346,19 @@
     </div>
   </aside>
 
+  <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
   <!-- Main -->
   <div class="main">
     <header class="topbar">
-      <div>
-        <div class="page-title">{% block page_title %}{% endblock %}</div>
-        <div class="breadcrumb">{% block breadcrumb %}{% endblock %}</div>
+      <div class="topbar-left">
+        <button type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Abrir menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div>
+          <div class="page-title">{% block page_title %}{% endblock %}</div>
+          <div class="breadcrumb">{% block breadcrumb %}{% endblock %}</div>
+        </div>
       </div>
       <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
     </header>
@@ -351,6 +386,16 @@
   </div>
 
 </div>
+<script>
+  function toggleSidebar() {
+    document.querySelector('.app-layout').classList.toggle('sidebar-open');
+  }
+  document.querySelectorAll('.sidebar .nav-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      document.querySelector('.app-layout').classList.remove('sidebar-open');
+    });
+  });
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
