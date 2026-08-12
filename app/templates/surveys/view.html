@@ -53,7 +53,13 @@
 {% endfor %}
 {% endfor %}
 
-<div style="margin-top:20px">
+<div style="margin-top:20px;display:flex;gap:8px">
   <a href="{% if viewing_as_admin %}/surveys/admin/{{ survey_type }}/results{% else %}/surveys{% endif %}" class="btn btn-outline">Voltar</a>
+  {% if viewing_as_admin %}
+  <form method="POST" action="/surveys/admin/{{ survey_type }}/results/{{ response.user.id }}/delete?period={{ period }}"
+        onsubmit="return confirm('Apagar a resposta de {{ response.user.name }}? Ela precisará responder a pesquisa novamente.')">
+    <button type="submit" class="btn btn-danger">Apagar resposta</button>
+  </form>
+  {% endif %}
 </div>
 {% endblock %}

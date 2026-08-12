@@ -636,8 +636,31 @@ async def admin_survey_detail(survey_type: str, user_id: int, request: Request, 
         "survey_type": survey_type,
         "form_obj": form,
         "response": resp,
+        "period": period,
         "groups": _grouped_questions(form),
         "answers": answers,
         "scale_labels": SCALE_LABELS,
         "viewing_as_admin": True,
     })
+
+
+@router.post("/admin/{survey_type}/results/{user_id}/delete")
+async def admin_survey_delete_response(survey_type: str, user_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+
+    form = db.query(SurveyForm).filter(SurveyForm.key == survey_type).first()
+    if not form:
+        raise HTTPException(404)
+
+    period = request.query_params.get("period") or current_period()
+
+    resp = db.query(SurveyResponse).filter(
+        SurveyResponse.form_id == form.id,
+        SurveyResponse.user_id == user_id,
+        SurveyResponse.period == period,
+    ).first()
+    if resp:
+        db.delete(resp)
+        db.commit()
+
+    return RedirectResponse(f"/surveys/admin/{survey_type}/results?period={period}&msg=deleted", status_code=302)
