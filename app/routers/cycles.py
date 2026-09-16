@@ -144,12 +144,26 @@ async def manage_assignments(cycle_id: int, request: Request, db: Session = Depe
     for a in assignments:
         matrix.setdefault(a.evaluator_id, set()).add(a.evaluatee_id)
 
+    users_by_id = {u.id: u for u in users}
+    matrix_evaluators = sorted(
+        (users_by_id[eid] for eid in matrix if eid in users_by_id),
+        key=lambda u: u.name,
+    )
+    matrix_departments = sorted({
+        users_by_id[uid].department
+        for eid, evaluatee_ids in matrix.items()
+        for uid in [eid, *evaluatee_ids]
+        if uid in users_by_id and users_by_id[uid].department
+    })
+
     return templates.TemplateResponse("admin/assignments.html", {
         "request": request,
         "current_user": user,
         "cycle": cycle,
         "users": users,
         "matrix": matrix,
+        "matrix_evaluators": matrix_evaluators,
+        "matrix_departments": matrix_departments,
     })
 
 
