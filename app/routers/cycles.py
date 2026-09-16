@@ -149,6 +149,11 @@ async def manage_assignments(cycle_id: int, request: Request, db: Session = Depe
         (users_by_id[eid] for eid in matrix if eid in users_by_id),
         key=lambda u: u.name,
     )
+    matrix_evaluatee_ids = {uid for evaluatee_ids in matrix.values() for uid in evaluatee_ids}
+    matrix_evaluatees = sorted(
+        (users_by_id[uid] for uid in matrix_evaluatee_ids if uid in users_by_id),
+        key=lambda u: u.name,
+    )
     matrix_departments = sorted({
         users_by_id[uid].department
         for eid, evaluatee_ids in matrix.items()
@@ -163,6 +168,7 @@ async def manage_assignments(cycle_id: int, request: Request, db: Session = Depe
         "users": users,
         "matrix": matrix,
         "matrix_evaluators": matrix_evaluators,
+        "matrix_evaluatees": matrix_evaluatees,
         "matrix_departments": matrix_departments,
     })
 

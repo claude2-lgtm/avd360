@@ -101,6 +101,12 @@
       <option value="{{ u.name|lower }}">{{ u.name }}</option>
       {% endfor %}
     </select>
+    <select id="mx-evaluatee" class="form-control" style="width:190px" onchange="filterMatrix()">
+      <option value="">Todos os avaliados</option>
+      {% for u in matrix_evaluatees %}
+      <option value="{{ u.name|lower }}">{{ u.name }}</option>
+      {% endfor %}
+    </select>
     {% if matrix_departments %}
     <select id="mx-department" class="form-control" style="width:170px" onchange="filterMatrix()">
       <option value="">Todos os departamentos</option>
@@ -188,9 +194,11 @@
     function filterMatrix() {
       const search = document.getElementById('mx-search').value.trim().toLowerCase();
       const evaluatorEl = document.getElementById('mx-evaluator');
+      const evaluateeEl = document.getElementById('mx-evaluatee');
       const deptEl = document.getElementById('mx-department');
       const typeEl = document.getElementById('mx-type');
       const evaluator = evaluatorEl ? evaluatorEl.value : '';
+      const evaluatee = evaluateeEl ? evaluateeEl.value : '';
       const department = deptEl ? deptEl.value : '';
       const type = typeEl ? typeEl.value : '';
 
@@ -199,9 +207,10 @@
       rows.forEach(row => {
         const matchesSearch = !search || row.dataset.evaluator.includes(search) || row.dataset.evaluatee.includes(search);
         const matchesEvaluator = !evaluator || row.dataset.evaluator === evaluator;
+        const matchesEvaluatee = !evaluatee || row.dataset.evaluatee === evaluatee;
         const matchesDepartment = !department || row.dataset.department.includes(department);
         const matchesType = !type || row.dataset.type === type;
-        const show = matchesSearch && matchesEvaluator && matchesDepartment && matchesType;
+        const show = matchesSearch && matchesEvaluator && matchesEvaluatee && matchesDepartment && matchesType;
         row.style.display = show ? '' : 'none';
         if (show) visible++;
       });
@@ -213,8 +222,10 @@
     function clearMatrixFilters() {
       document.getElementById('mx-search').value = '';
       const evaluatorEl = document.getElementById('mx-evaluator');
+      const evaluateeEl = document.getElementById('mx-evaluatee');
       const deptEl = document.getElementById('mx-department');
       if (evaluatorEl) evaluatorEl.value = '';
+      if (evaluateeEl) evaluateeEl.value = '';
       if (deptEl) deptEl.value = '';
       document.getElementById('mx-type').value = '';
       filterMatrix();
