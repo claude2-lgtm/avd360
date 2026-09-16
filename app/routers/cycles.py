@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from app.templates_config import make_templates
 from sqlalchemy.orm import Session
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import asyncio
 import csv
 import io
@@ -168,7 +168,7 @@ async def add_assignment(
     cycle_id: int,
     request: Request,
     evaluator_id: int = Form(...),
-    evaluatee_id: int = Form(...),
+    evaluatee_ids: List[int] = Form(...),
     db: Session = Depends(get_db),
 ):
     require_admin(request, db)
@@ -176,30 +176,32 @@ async def add_assignment(
     if not cycle:
         raise HTTPException(404)
 
-    existing = db.query(EvaluationAssignment).filter(
-        EvaluationAssignment.cycle_id == cycle_id,
-        EvaluationAssignment.evaluator_id == evaluator_id,
-        EvaluationAssignment.evaluatee_id == evaluatee_id,
-    ).first()
+    for evaluatee_id in set(evaluatee_ids):
+        existing = db.query(EvaluationAssignment).filter(
+            EvaluationAssignment.cycle_id == cycle_id,
+            EvaluationAssignment.evaluator_id == evaluator_id,
+            EvaluationAssignment.evaluatee_id == evaluatee_id,
+        ).first()
 
-    if not existing:
-        is_self = evaluator_id == evaluatee_id
-        assign = EvaluationAssignment(
-            cycle_id=cycle_id,
-            evaluator_id=evaluator_id,
-            evaluatee_id=evaluatee_id,
-            is_self=is_self,
-        )
-        ev = Evaluation(
-            cycle_id=cycle_id,
-            evaluator_id=evaluator_id,
-            evaluatee_id=evaluatee_id,
-            is_self_evaluation=is_self,
-            status=EvaluationStatus.pending,
-        )
-        db.add(assign)
-        db.add(ev)
-        db.commit()
+        if not existing:
+            is_self = evaluator_id == evaluatee_id
+            assign = EvaluationAssignment(
+                cycle_id=cycle_id,
+                evaluator_id=evaluator_id,
+                evaluatee_id=evaluatee_id,
+                is_self=is_self,
+            )
+            ev = Evaluation(
+                cycle_id=cycle_id,
+                evaluator_id=evaluator_id,
+                evaluatee_id=evaluatee_id,
+                is_self_evaluation=is_self,
+                status=EvaluationStatus.pending,
+            )
+            db.add(assign)
+            db.add(ev)
+
+    db.commit()
 
     return RedirectResponse(f"/cycles/{cycle_id}/assignments?msg=added", status_code=302)
 

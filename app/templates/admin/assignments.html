@@ -38,13 +38,15 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label required">Avaliado</label>
-        <select name="evaluatee_id" class="form-control" required>
-          <option value="">Selecione...</option>
+        <label class="form-label required">Avaliado(s)</label>
+        <select name="evaluatee_ids" class="form-control" multiple required size="6">
           {% for u in users %}
           <option value="{{ u.id }}">{{ u.name }} ({{ u.position }})</option>
           {% endfor %}
         </select>
+        <div style="margin-top:4px;font-size:12px;color:var(--text3)">
+          Segure Ctrl (ou Cmd no Mac) para selecionar mais de um avaliado.
+        </div>
       </div>
       <button type="submit" class="btn btn-primary">Adicionar</button>
     </form>
