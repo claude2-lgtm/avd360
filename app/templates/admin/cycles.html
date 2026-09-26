@@ -49,6 +49,7 @@
       </div>
 
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+        <button onclick="document.getElementById('modal-edit-{{ c.id }}').classList.add('open')" class="btn btn-outline btn-sm">Editar prazo</button>
         <a href="/cycles/{{ c.id }}/assignments" class="btn btn-outline btn-sm">Designações</a>
         {% if c.status.value != 'active' and c.status.value != 'closed' %}
         <form method="POST" action="/cycles/{{ c.id }}/activate">
@@ -72,6 +73,40 @@
           <button type="submit" class="btn btn-danger btn-sm" style="width:100%">Excluir</button>
         </form>
       </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal-backdrop" id="modal-edit-{{ c.id }}">
+    <div class="modal">
+      <div class="flex-between mb-16">
+        <div class="modal-title">Editar Ciclo</div>
+        <button onclick="document.getElementById('modal-edit-{{ c.id }}').classList.remove('open')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3)">×</button>
+      </div>
+      <form method="POST" action="/cycles/{{ c.id }}/update">
+        <div class="form-group">
+          <label class="form-label required">Nome do ciclo</label>
+          <input type="text" name="name" class="form-control" required value="{{ c.name }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descrição (opcional)</label>
+          <textarea name="description" class="form-control" rows="2">{{ c.description or '' }}</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Data de início</label>
+            <input type="date" name="start_date" class="form-control" value="{{ c.start_date.strftime('%Y-%m-%d') if c.start_date else '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Prazo (data de encerramento)</label>
+            <input type="date" name="end_date" class="form-control" value="{{ c.end_date.strftime('%Y-%m-%d') if c.end_date else '' }}">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="document.getElementById('modal-edit-{{ c.id }}').classList.remove('open')" class="btn btn-outline">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar alterações</button>
+        </div>
+      </form>
     </div>
   </div>
   {% endfor %}

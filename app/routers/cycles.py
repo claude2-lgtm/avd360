@@ -127,6 +127,41 @@ async def create_cycle(
     return RedirectResponse(f"/cycles/{cycle.id}/assignments", status_code=302)
 
 
+@router.post("/{cycle_id}/update")
+async def update_cycle(
+    cycle_id: int,
+    request: Request,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    start_date: Optional[str] = Form(None),
+    end_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    require_admin(request, db)
+    cycle = db.query(EvaluationCycle).get(cycle_id)
+    if not cycle:
+        raise HTTPException(404)
+
+    def parse_date(s):
+        if not s:
+            return None
+        try:
+            return datetime.strptime(s, "%Y-%m-%d")
+        except Exception:
+            return None
+
+    new_end_date = parse_date(end_date)
+
+    cycle.name = name.strip()
+    cycle.description = description
+    cycle.start_date = parse_date(start_date)
+    if new_end_date != cycle.end_date:
+        cycle.reminder_sent = False
+    cycle.end_date = new_end_date
+    db.commit()
+    return RedirectResponse("/cycles?msg=updated", status_code=302)
+
+
 @router.get("/{cycle_id}/assignments", response_class=HTMLResponse)
 async def manage_assignments(cycle_id: int, request: Request, db: Session = Depends(get_db)):
     user = require_admin(request, db)
