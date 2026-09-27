@@ -14,6 +14,12 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./avd360.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Force the psycopg2 driver explicitly — newer SQLAlchemy versions default
+# bare "postgresql://" URLs to the psycopg (v3) driver, which isn't installed
+# (only psycopg2-binary is in requirements.txt).
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
