@@ -104,20 +104,20 @@ O admin pode adicionar/remover designações manualmente em qualquer caso.
 
 ## 📧 Configurar e-mail (opcional)
 
-O envio é feito via API do [SendGrid](https://sendgrid.com) (não usa SMTP direto, pois muitas hospedagens como o Render bloqueiam as portas SMTP tradicionais).
+O envio é feito via API do [Brevo](https://www.brevo.com) (não usa SMTP direto, pois muitas hospedagens como o Render bloqueiam as portas SMTP tradicionais). O plano gratuito permite 300 e-mails por dia.
 
 Edite o arquivo `.env` (ou as Environment Variables da hospedagem):
 ```
 EMAIL_ENABLED=true
-SENDGRID_API_KEY=SG.xxxxxxxxxxxx
-EMAIL_FROM=noreply@grupogestao.com.br
+BREVO_API_KEY=xkeysib-xxxxxxxxxxxx
+EMAIL_FROM=gp@grupogestao.co
 ```
 
 Passos:
-1. Crie uma conta em [sendgrid.com](https://sendgrid.com).
-2. Em **Settings → Sender Authentication → Single Sender Verification**, cadastre o e-mail remetente (ex: `gp@grupogestao.co`) e confirme clicando no link recebido na caixa de entrada dele.
-3. Em **Settings → API Keys**, gere uma chave com permissão de "Mail Send" e use como `SENDGRID_API_KEY`.
-4. `EMAIL_FROM` deve ser exatamente o e-mail verificado no passo 2.
+1. Crie uma conta em [brevo.com](https://www.brevo.com).
+2. Em **Senders, Domains & Dedicated IPs → Senders**, cadastre o remetente `gp@grupogestao.co` e confirme pelo código/link recebido na caixa de entrada dele.
+3. Em **SMTP & API → API Keys**, gere uma chave e use como `BREVO_API_KEY`.
+4. `EMAIL_FROM` deve ser exatamente o e-mail verificado no passo 2 (se não for definido, o padrão é `gp@grupogestao.co`).
 
 ---
 

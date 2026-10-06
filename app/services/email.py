@@ -1,55 +1,82 @@
 import base64
 import os
+from dataclasses import dataclass
 from typing import List, Optional
 
 import httpx
 
 
 EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@grupogestao.com.br")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "gp@grupogestao.co")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "AVD 360° | Grupo Gestão")
 APP_URL = os.getenv("APP_URL", "https://avd360.onrender.com")
 
-SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+
+
+@dataclass
+class EmailResult:
+    ok: bool
+    error: str = ""
+
+    def __bool__(self):
+        return self.ok
+
+
+def _describe_error(status: int, body: dict) -> str:
+    message = body.get("message") or body.get("code") or ""
+    if status == 401:
+        reason = "chave de API do Brevo inválida ou ausente (BREVO_API_KEY)"
+    elif status == 402 or "credit" in message.lower():
+        reason = "créditos de envio do Brevo esgotados"
+    elif "sender" in message.lower():
+        reason = f"remetente {EMAIL_FROM} não verificado no Brevo"
+    else:
+        reason = "o serviço de e-mail recusou o envio"
+    return f"{reason} ({status}: {message})" if message else f"{reason} ({status})"
 
 
 async def send_email(to: List[str], subject: str, body_html: str,
-                     attachments: Optional[List[dict]] = None):
-    """attachments: list of {"filename", "content" (bytes), "type" (mime)}."""
+                     attachments: Optional[List[dict]] = None) -> EmailResult:
+    """attachments: list of {"filename", "content" (bytes)}."""
     if not EMAIL_ENABLED:
         names = [a["filename"] for a in attachments or []]
-        print(f"[EMAIL SIMULADO] Para: {to} | Assunto: {subject} | Anexos: {names}")
-        return True
+        print(f"[EMAIL SIMULADO] Para: {to} | Assunto: {subject} | Anexos: {names}", flush=True)
+        return EmailResult(True)
+    if not BREVO_API_KEY:
+        print("[EMAIL ERRO] BREVO_API_KEY não configurada", flush=True)
+        return EmailResult(False, "chave de API do Brevo não configurada (BREVO_API_KEY)")
+
     payload = {
-        "personalizations": [{"to": [{"email": addr} for addr in to]}],
-        "from": {"email": EMAIL_FROM},
+        "sender": {"email": EMAIL_FROM, "name": EMAIL_FROM_NAME},
+        "to": [{"email": addr} for addr in to],
         "subject": subject,
-        "content": [{"type": "text/html", "value": body_html}],
+        "htmlContent": body_html,
     }
     if attachments:
-        payload["attachments"] = [
-            {
-                "content": base64.b64encode(a["content"]).decode("ascii"),
-                "filename": a["filename"],
-                "type": a.get("type", "application/octet-stream"),
-                "disposition": "attachment",
-            }
+        payload["attachment"] = [
+            {"content": base64.b64encode(a["content"]).decode("ascii"), "name": a["filename"]}
             for a in attachments
         ]
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
-                SENDGRID_API_URL,
-                headers={"Authorization": f"Bearer {SENDGRID_API_KEY}"},
+                BREVO_API_URL,
+                headers={"api-key": BREVO_API_KEY, "accept": "application/json"},
                 json=payload,
             )
         if response.status_code >= 400:
-            print(f"[EMAIL ERRO] {response.status_code} {response.text}")
-            return False
-        return True
+            print(f"[EMAIL ERRO] {response.status_code} {response.text}", flush=True)
+            try:
+                body = response.json()
+            except ValueError:
+                body = {}
+            return EmailResult(False, _describe_error(response.status_code, body))
+        return EmailResult(True)
     except Exception as e:
-        print(f"[EMAIL ERRO] {e}")
-        return False
+        print(f"[EMAIL ERRO] {e}", flush=True)
+        return EmailResult(False, f"não foi possível conectar ao serviço de e-mail ({e})")
 
 
 async def notify_cycle_opened(users: list, cycle_name: str, end_date: str):
@@ -162,5 +189,5 @@ async def send_individual_report(user_email: str, user_name: str, cycle_name: st
         [user_email],
         f"AVD 360° — Seu relatório de avaliação: {cycle_name}",
         body,
-        attachments=[{"filename": filename, "content": pdf_bytes, "type": "application/pdf"}],
+        attachments=[{"filename": filename, "content": pdf_bytes}],
     )

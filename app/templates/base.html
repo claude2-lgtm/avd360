@@ -380,7 +380,7 @@
         {% elif request.query_params.get('msg') == 'report_sent' %}
         <div class="alert alert-success">✓ Relatório enviado por e-mail para o colaborador.</div>
         {% elif request.query_params.get('msg') == 'email_error' %}
-        <div class="alert alert-error">✗ Falha ao enviar o e-mail. Verifique a configuração de SMTP.</div>
+        <div class="alert alert-error">✗ Falha ao enviar o e-mail{% if request.query_params.get('detail') %}: {{ request.query_params.get('detail') }}{% else %}. Verifique a configuração de e-mail (Brevo).{% endif %}</div>
         {% endif %}
       {% endblock %}
       {% block content %}{% endblock %}

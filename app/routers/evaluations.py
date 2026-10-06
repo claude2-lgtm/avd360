@@ -4,6 +4,7 @@ from app.templates_config import make_templates
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
 import json
 
 from app.models.database import (
@@ -299,8 +300,10 @@ async def send_report(cycle_id: int, user_id: int, request: Request, db: Session
     sent = await send_individual_report(
         u.email, u.name, data["cycle"].name, pdf_bytes, _report_filename(u, cycle_id)
     )
-    msg = "report_sent" if sent else "email_error"
-    return RedirectResponse(f"/evaluations/reports/{cycle_id}/{user_id}?msg={msg}", status_code=302)
+    url = f"/evaluations/reports/{cycle_id}/{user_id}"
+    if sent:
+        return RedirectResponse(f"{url}?msg=report_sent", status_code=302)
+    return RedirectResponse(f"{url}?msg=email_error&detail={quote(sent.error)}", status_code=302)
 
 
 @router.get("/reports/{cycle_id}/{user_id}", response_class=HTMLResponse)
