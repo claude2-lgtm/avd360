@@ -8,6 +8,13 @@
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
   Exportar PDF
 </a>
+<form method="POST" action="/evaluations/reports/{{ cycle_id }}/{{ user_id }}/send" style="display:inline"
+      onsubmit="return confirm('Enviar o relatório em PDF para {{ data.user.name }} ({{ data.user.email }})?')">
+  <button type="submit" class="btn btn-outline btn-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    Enviar ao colaborador
+  </button>
+</form>
 {% endblock %}
 
 {% block content %}
@@ -97,39 +104,59 @@
 </div>
 {% endif %}
 
-<!-- Comments -->
+<!-- Individual evaluations -->
 {% if data.evaluations %}
 <div class="card">
-  <div class="card-title" style="margin-bottom:16px">Comentários e Observações</div>
+  <div class="card-title" style="margin-bottom:16px">Avaliações Individuais</div>
   <div style="display:flex;flex-direction:column;gap:16px">
     {% for ev in data.evaluations %}
-    {% if ev.answers or ev.general_observations %}
     <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
       <div style="background:var(--purple-light);padding:10px 16px;display:flex;align-items:center;gap:8px">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">
           {{ ev.evaluator_name[:2].upper() }}
         </div>
-        <div>
+        <div style="flex:1">
           <span style="font-size:13px;font-weight:600;color:var(--purple-dark)">{{ ev.evaluator_name }}</span>
           <span class="badge badge-purple" style="margin-left:8px;font-size:10px">{{ ev.relationship }}</span>
         </div>
-      </div>
-      <div style="padding:14px 16px">
-        {% for ans in ev.answers %}
-        <div style="margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:3px">{{ ans.competency }}</div>
-          <div style="font-size:13px;color:var(--text)">{{ ans.comment }}</div>
-        </div>
-        {% endfor %}
-        {% if ev.general_observations %}
-        <div style="background:var(--surface2);border-left:3px solid var(--purple);padding:10px 12px;border-radius:0 6px 6px 0;margin-top:8px">
-          <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px">OBSERVAÇÕES GERAIS</div>
-          <div style="font-size:13px;color:var(--text);line-height:1.6">{{ ev.general_observations }}</div>
-        </div>
+        {% if ev.avg %}
+        <div style="font-size:12px;color:var(--text2)">média <strong style="font-size:14px;color:var(--purple-dark)">{{ "%.2f"|format(ev.avg) }}</strong></div>
         {% endif %}
       </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:32%">Competência</th>
+              <th style="text-align:center;width:70px">Nota</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ans in ev.answers %}
+            <tr>
+              <td style="font-weight:500;font-size:13px">{{ ans.competency }}</td>
+              <td style="text-align:center;font-size:14px;font-weight:600;color:
+                {% if ans.score and ans.score >= 4 %}var(--green){% elif ans.score and ans.score >= 3 %}var(--amber){% elif ans.score %}var(--red){% else %}var(--text3){% endif %}">
+                {% if ans.score is not none %}{{ "%g"|format(ans.score) }}{% else %}—{% endif %}
+              </td>
+              <td style="font-size:13px;color:var(--text);white-space:pre-line">{% if ans.comment %}{{ ans.comment }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:12px 16px">
+        <div style="background:var(--surface2);border-left:3px solid var(--purple);padding:10px 12px;border-radius:0 6px 6px 0">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px">OBSERVAÇÃO FINAL</div>
+          {% if ev.general_observations %}
+          <div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-line">{{ ev.general_observations }}</div>
+          {% else %}
+          <div class="text-muted" style="font-size:13px">Sem observação final.</div>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    {% endif %}
     {% endfor %}
   </div>
 </div>

@@ -1,5 +1,6 @@
+import base64
 import os
-from typing import List
+from typing import List, Optional
 
 import httpx
 
@@ -12,21 +13,35 @@ APP_URL = os.getenv("APP_URL", "https://avd360.onrender.com")
 SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
 
 
-async def send_email(to: List[str], subject: str, body_html: str):
+async def send_email(to: List[str], subject: str, body_html: str,
+                     attachments: Optional[List[dict]] = None):
+    """attachments: list of {"filename", "content" (bytes), "type" (mime)}."""
     if not EMAIL_ENABLED:
-        print(f"[EMAIL SIMULADO] Para: {to} | Assunto: {subject}")
+        names = [a["filename"] for a in attachments or []]
+        print(f"[EMAIL SIMULADO] Para: {to} | Assunto: {subject} | Anexos: {names}")
         return True
+    payload = {
+        "personalizations": [{"to": [{"email": addr} for addr in to]}],
+        "from": {"email": EMAIL_FROM},
+        "subject": subject,
+        "content": [{"type": "text/html", "value": body_html}],
+    }
+    if attachments:
+        payload["attachments"] = [
+            {
+                "content": base64.b64encode(a["content"]).decode("ascii"),
+                "filename": a["filename"],
+                "type": a.get("type", "application/octet-stream"),
+                "disposition": "attachment",
+            }
+            for a in attachments
+        ]
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
                 SENDGRID_API_URL,
                 headers={"Authorization": f"Bearer {SENDGRID_API_KEY}"},
-                json={
-                    "personalizations": [{"to": [{"email": addr} for addr in to]}],
-                    "from": {"email": EMAIL_FROM},
-                    "subject": subject,
-                    "content": [{"type": "text/html", "value": body_html}],
-                },
+                json=payload,
             )
         if response.status_code >= 400:
             print(f"[EMAIL ERRO] {response.status_code} {response.text}")
@@ -124,3 +139,28 @@ async def notify_new_user(user_email: str, user_name: str, temp_password: str):
     </div>
     """
     return await send_email([user_email], "AVD 360° — Bem-vindo ao sistema!", body)
+
+
+async def send_individual_report(user_email: str, user_name: str, cycle_name: str,
+                                 pdf_bytes: bytes, filename: str):
+    body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:#6F12FF;padding:24px;border-radius:8px 8px 0 0">
+        <h1 style="color:white;margin:0;font-size:20px">AVD 360° | Grupo Gestão</h1>
+      </div>
+      <div style="background:#f9f9f9;padding:24px;border-radius:0 0 8px 8px">
+        <p>Olá, <strong>{user_name}</strong>!</p>
+        <p>O ciclo de avaliação <strong>{cycle_name}</strong> foi concluído.</p>
+        <p>Seu relatório individual de desempenho está em anexo neste e-mail (PDF).</p>
+        <p>Em caso de dúvidas, procure seu gestor ou o RH.</p>
+        <br>
+        <p style="color:#888;font-size:12px">Grupo Gestão Consultoria</p>
+      </div>
+    </div>
+    """
+    return await send_email(
+        [user_email],
+        f"AVD 360° — Seu relatório de avaliação: {cycle_name}",
+        body,
+        attachments=[{"filename": filename, "content": pdf_bytes, "type": "application/pdf"}],
+    )

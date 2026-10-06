@@ -12,7 +12,8 @@ from app.models.database import (
 )
 from app.services.auth import get_current_user_from_cookie, require_admin
 from app.services.reports import get_competencies_for_position, aggregate_report_data
-from app.services.pdf import generate_individual_report
+from app.services.pdf import generate_report_from_data
+from app.services.email import send_individual_report
 
 router = APIRouter(prefix="/evaluations")
 templates = make_templates()
@@ -271,26 +272,35 @@ async def reports_list(cycle_id: int, request: Request, db: Session = Depends(ge
 async def download_pdf(cycle_id: int, user_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)
     data = aggregate_report_data(db, user_id, cycle_id)
-    u = data["user"]
-    cycle = data["cycle"]
-
-    pdf_bytes = generate_individual_report(
-        user_name=u.name,
-        position=u.position or "—",
-        department=u.department or "—",
-        cycle_name=cycle.name if cycle else "—",
-        summary=data["summary"],
-        comp_scores=data["comp_scores"],
-        evaluations=data["evaluations"],
-    )
+    pdf_bytes = generate_report_from_data(data)
 
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="AVD_{u.name.replace(" ", "_")}_{cycle_id}.pdf"'
+            "Content-Disposition": f'attachment; filename="{_report_filename(data["user"], cycle_id)}"'
         },
     )
+
+
+def _report_filename(u: User, cycle_id: int) -> str:
+    return f"AVD_{u.name.replace(' ', '_')}_{cycle_id}.pdf"
+
+
+@router.post("/reports/{cycle_id}/{user_id}/send")
+async def send_report(cycle_id: int, user_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    data = aggregate_report_data(db, user_id, cycle_id)
+    u = data["user"]
+    if not u or not data["cycle"]:
+        raise HTTPException(404)
+
+    pdf_bytes = generate_report_from_data(data)
+    sent = await send_individual_report(
+        u.email, u.name, data["cycle"].name, pdf_bytes, _report_filename(u, cycle_id)
+    )
+    msg = "report_sent" if sent else "email_error"
+    return RedirectResponse(f"/evaluations/reports/{cycle_id}/{user_id}?msg={msg}", status_code=302)
 
 
 @router.get("/reports/{cycle_id}/{user_id}", response_class=HTMLResponse)

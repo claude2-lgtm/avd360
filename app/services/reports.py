@@ -107,7 +107,14 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int) -> Dict
             "avg": all_avg,
         })
 
-    # Full evaluation details for comments
+    def answer_sort_key(a):
+        c = a.competency
+        if not c:
+            return (1, 0, 0, 0)
+        return (0, c.group.order if c.group else 0, c.order or 0, c.id)
+
+    # Full evaluation details: every score and comment given by each evaluator
+    rel_order = {"Autoavaliação": 0, "Superior": 1, "Par": 2}
     ev_details = []
     for ev in evaluations:
         rel = "Autoavaliação" if ev.is_self_evaluation else (
@@ -115,19 +122,24 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int) -> Dict
                                                      "Diretor de Projetos", "Diretor de Gestão", "Presidente"]
             else "Par"
         )
+        answers = sorted(ev.answers, key=answer_sort_key)
+        scores = [a.score for a in answers if a.score is not None]
         ev_details.append({
             "evaluator_name": ev.evaluator.name,
             "relationship": rel,
             "general_observations": ev.general_observations,
+            "avg": (sum(scores) / len(scores)) if scores else None,
             "answers": [
                 {
                     "competency": a.competency.name if a.competency else "",
+                    "group": a.competency.group.name if a.competency and a.competency.group else "",
                     "score": a.score,
                     "comment": a.comment,
                 }
-                for a in ev.answers if a.comment
+                for a in answers
             ],
         })
+    ev_details.sort(key=lambda e: (rel_order.get(e["relationship"], 9), e["evaluator_name"]))
 
     return {
         "user": evaluatee,

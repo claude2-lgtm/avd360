@@ -4,12 +4,13 @@ from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    HRFlowable, KeepTogether
+    HRFlowable, KeepTogether, CondPageBreak
 )
 from reportlab.graphics.shapes import Drawing, Rect, String, Line
-from reportlab.graphics.charts.barcharts import VerticalBarChart
-from reportlab.graphics import renderPDF
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.utils import simpleSplit
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from xml.sax.saxutils import escape as xml_escape
 from io import BytesIO
 from datetime import datetime
 from typing import List, Dict, Any
@@ -119,52 +120,106 @@ def build_summary_scores(elements, styles, summary: Dict):
     elements.append(Spacer(1, 6 * mm))
 
 
+def _esc(text) -> str:
+    return xml_escape(str(text or "")).replace("\n", "<br/>")
+
+
+def _wrap_label(text: str, font: str, size: float, width: float, max_lines: int = 3) -> List[str]:
+    lines = simpleSplit(text or "", font, size, width) or [""]
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        last = lines[-1]
+        while last and stringWidth(last + "…", font, size) > width:
+            last = last[:-1]
+        lines[-1] = last.rstrip() + "…"
+    return lines
+
+
+def _competency_chart_drawing(comp_scores: List[Dict]) -> Drawing:
+    """Horizontal bar chart drawn by hand so the competency labels are never clipped."""
+    total_w = 180 * mm
+    label_w = 68 * mm
+    bar_x = label_w + 4 * mm
+    bar_w = total_w - bar_x - 12 * mm
+    font, font_size, line_h = "Helvetica", 7.5, 9
+    axis_h = 8 * mm
+    pad = 2 * mm
+
+    rows = []
+    for s in comp_scores:
+        lines = _wrap_label(s.get("name", ""), font, font_size, label_w)
+        row_h = max(7 * mm, len(lines) * line_h + 6)
+        rows.append((s, lines, row_h))
+
+    total_h = sum(r[2] for r in rows) + axis_h + pad
+    d = Drawing(total_w, total_h)
+    top = total_h - pad
+    bottom = axis_h
+
+    # Gridlines and axis labels (0 to 5)
+    for v in range(6):
+        x = bar_x + bar_w * v / 5
+        d.add(Line(x, bottom, x, top, strokeColor=colors.HexColor("#DDDDDD"), strokeWidth=0.5))
+        d.add(String(x, bottom - 10, str(v), fontName=font, fontSize=8,
+                     fillColor=TEXT_MED, textAnchor="middle"))
+    d.add(Line(bar_x, bottom, bar_x, top, strokeColor=colors.HexColor("#999999"), strokeWidth=0.7))
+
+    y = top
+    for s, lines, row_h in rows:
+        center = y - row_h / 2
+        # Label right-aligned against the axis, vertically centred on the bar
+        first_baseline = center + (len(lines) - 1) * line_h / 2 - font_size / 3
+        for i, line in enumerate(lines):
+            d.add(String(label_w, first_baseline - i * line_h, line, fontName=font,
+                         fontSize=font_size, fillColor=TEXT_DARK, textAnchor="end"))
+        avg = s.get("avg")
+        if avg is not None:
+            bh = min(row_h - 4, 5 * mm)
+            bw = bar_w * min(avg, 5) / 5
+            d.add(Rect(bar_x, center - bh / 2, bw, bh, fillColor=PURPLE, strokeColor=None))
+            d.add(String(bar_x + bw + 3, center - 3, f"{avg:.2f}", fontName="Helvetica-Bold",
+                         fontSize=8, fillColor=TEXT_DARK))
+        else:
+            d.add(String(bar_x + 3, center - 3, "sem nota", fontName=font, fontSize=7,
+                         fillColor=colors.grey))
+        y -= row_h
+    return d
+
+
 def build_competency_chart(elements, styles, comp_scores: List[Dict]):
     if not comp_scores:
         return
 
     elements.append(Paragraph("Desempenho por Competência", styles["section_title"]))
     elements.append(HRFlowable(width="100%", thickness=1, color=PURPLE, spaceAfter=4 * mm))
+    elements.append(Paragraph("Média de pontuação por competência (escala de 1 a 5)", styles["chart_caption"]))
 
-    # Bar chart
-    drawing = Drawing(180 * mm, max(80, len(comp_scores) * 14) * mm)
-    chart = VerticalBarChart()
-    chart.x = 10 * mm
-    chart.y = 10 * mm
-    chart.width = 155 * mm
-    chart.height = max(60, len(comp_scores) * 12) * mm
-    chart.data = [[s["avg"] for s in comp_scores if s.get("avg")]]
-    chart.categoryAxis.categoryNames = [s["name"][:30] for s in comp_scores if s.get("avg")]
-    chart.valueAxis.valueMin = 0
-    chart.valueAxis.valueMax = 5
-    chart.valueAxis.valueStep = 1
-    chart.bars[0].fillColor = PURPLE
-    chart.bars[0].strokeColor = None
-    chart.categoryAxis.labels.angle = 30
-    chart.categoryAxis.labels.fontSize = 7
-    chart.valueAxis.labels.fontSize = 8
-    drawing.add(chart)
-    elements.append(drawing)
-    elements.append(Spacer(1, 4 * mm))
+    # Split long lists so each drawing fits on a single page
+    chunk = 18
+    for i in range(0, len(comp_scores), chunk):
+        elements.append(_competency_chart_drawing(comp_scores[i:i + chunk]))
+        elements.append(Spacer(1, 3 * mm))
+    elements.append(Spacer(1, 2 * mm))
 
     # Table detail
     rows = [["Competência", "Grupo", "Auto", "Pares", "Média"]]
     for s in comp_scores:
         rows.append([
-            s.get("name", "")[:45],
-            s.get("group", "")[:20],
+            Paragraph(_esc(s.get("name", "")), styles["cell"]),
+            Paragraph(_esc(s.get("group", "")), styles["cell"]),
             f"{s['self']:.1f}" if s.get("self") else "—",
             f"{s['peers']:.1f}" if s.get("peers") else "—",
             f"{s['avg']:.2f}" if s.get("avg") else "—",
         ])
 
-    t = Table(rows, colWidths=[70 * mm, 40 * mm, 20 * mm, 20 * mm, 20 * mm])
+    t = Table(rows, colWidths=[75 * mm, 45 * mm, 20 * mm, 20 * mm, 20 * mm], repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), PURPLE),
         ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("ALIGN", (2, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, GRAY_MID]),
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
         ("PADDING", (0, 0), (-1, -1), 6),
@@ -173,34 +228,66 @@ def build_competency_chart(elements, styles, comp_scores: List[Dict]):
     elements.append(Spacer(1, 6 * mm))
 
 
-def build_comments_section(elements, styles, evaluations: List[Dict]):
-    elements.append(Paragraph("Comentários e Observações", styles["section_title"]))
+def build_evaluations_section(elements, styles, evaluations: List[Dict]):
+    if not evaluations:
+        return
+
+    # Avoid leaving the section title stranded at the bottom of a page
+    elements.append(CondPageBreak(70 * mm))
+    elements.append(Paragraph("Avaliações Individuais", styles["section_title"]))
     elements.append(HRFlowable(width="100%", thickness=1, color=PURPLE, spaceAfter=4 * mm))
 
+    muted_dash = "<font color='#999999'>—</font>"
     for ev in evaluations:
-        evaluator_label = ev.get("evaluator_name", "Avaliador")
-        rel = ev.get("relationship", "Par")
-        ev_type = f"[{rel}] {evaluator_label}"
+        avg = ev.get("avg")
+        avg_txt = f"  ·  média {avg:.2f}" if avg is not None else ""
+        header = Paragraph(
+            f"[{_esc(ev.get('relationship', 'Par'))}] {_esc(ev.get('evaluator_name', 'Avaliador'))}{avg_txt}",
+            styles["eval_name"],
+        )
 
-        block = []
-        block.append(Paragraph(ev_type, styles["eval_name"]))
+        answers = ev.get("answers", [])
+        rows = [["Competência", "Nota", "Observação"]]
+        for ans in answers:
+            score = ans.get("score")
+            rows.append([
+                Paragraph(_esc(ans.get("competency", "")), styles["cell"]),
+                Paragraph(f"<font color='#{score_color(score).hexval()[2:]}'>{score:g}</font>"
+                          if score is not None else "—", styles["score_cell"]),
+                Paragraph(_esc(ans.get("comment")) or muted_dash, styles["cell"]),
+            ])
 
-        for ans in ev.get("answers", []):
-            if ans.get("comment"):
-                block.append(Paragraph(
-                    f"<b>{ans['competency']}:</b> {ans['comment']}",
-                    styles["comment_text"]
-                ))
+        style = [
+            ("BACKGROUND", (0, 0), (-1, 0), PURPLE_DARK),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, GRAY_MID]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+            ("PADDING", (0, 0), (-1, -1), 5),
+        ]
+        t = Table(rows, colWidths=[62 * mm, 16 * mm, 102 * mm], repeatRows=1)
+        t.setStyle(TableStyle(style))
 
-        if ev.get("general_observations"):
-            block.append(Paragraph(
-                f"<b>Observações gerais:</b> {ev['general_observations']}",
-                styles["obs_text"]
-            ))
+        obs_body = _esc(ev.get("general_observations")) or "<font color='#999999'>Sem observação final.</font>"
+        obs = Table([[Paragraph(f"<b>Observação final:</b><br/>{obs_body}", styles["obs_text"])]],
+                    colWidths=[180 * mm])
+        obs.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F0EBFF")),
+            ("LINEBEFORE", (0, 0), (0, -1), 2, PURPLE),
+            ("PADDING", (0, 0), (-1, -1), 8),
+        ]))
 
-        if len(block) > 1:
-            elements.append(KeepTogether(block))
-            elements.append(Spacer(1, 3 * mm))
+        # Keep the evaluator name glued to the start of its table
+        header.keepWithNext = True
+        elements.append(header)
+        elements.append(Spacer(1, 2 * mm))
+        elements.append(t)
+        elements.append(Spacer(1, 4 * mm))
+        elements.append(obs)
+        elements.append(Spacer(1, 8 * mm))
 
 
 def generate_individual_report(
@@ -231,19 +318,35 @@ def generate_individual_report(
         "emp_info": ParagraphStyle("ei", fontSize=10, textColor=TEXT_MED),
         "section_title": ParagraphStyle("st", fontSize=13, textColor=PURPLE_DARKEST, fontName="Helvetica-Bold",
                                         spaceBefore=4 * mm),
-        "eval_name": ParagraphStyle("evn", fontSize=9, textColor=PURPLE_DARK, fontName="Helvetica-Bold",
-                                    backColor=colors.HexColor("#F0EBFF"), leftIndent=4,
-                                    spaceAfter=2, spaceBefore=4),
-        "comment_text": ParagraphStyle("ct", fontSize=8, textColor=TEXT_MED, leftIndent=8, spaceAfter=2),
-        "obs_text": ParagraphStyle("ot", fontSize=8, textColor=TEXT_DARK, leftIndent=8,
-                                   backColor=GRAY_LIGHT, spaceAfter=2),
+        "eval_name": ParagraphStyle("evn", fontSize=10, textColor=PURPLE_DARKEST, fontName="Helvetica-Bold",
+                                    spaceBefore=2),
+        "cell": ParagraphStyle("cell", fontSize=8, leading=10, textColor=TEXT_DARK),
+        "chart_caption": ParagraphStyle("cc", fontSize=8, textColor=TEXT_MED, spaceAfter=2 * mm),
+        "score_cell": ParagraphStyle("sc", fontSize=9, leading=11, fontName="Helvetica-Bold",
+                                     alignment=TA_CENTER),
+        "obs_text": ParagraphStyle("ot", fontSize=8.5, leading=11, textColor=TEXT_DARK),
     }
 
     elements = []
     build_header(elements, styles, user_name, position, department, cycle_name)
     build_summary_scores(elements, styles, summary)
     build_competency_chart(elements, styles, comp_scores)
-    build_comments_section(elements, styles, evaluations)
+    build_evaluations_section(elements, styles, evaluations)
 
     doc.build(elements)
     return buffer.getvalue()
+
+
+def generate_report_from_data(data: Dict) -> bytes:
+    """Builds the PDF from the dict returned by aggregate_report_data."""
+    u = data["user"]
+    cycle = data["cycle"]
+    return generate_individual_report(
+        user_name=u.name,
+        position=u.position or "—",
+        department=u.department or "—",
+        cycle_name=cycle.name if cycle else "—",
+        summary=data["summary"],
+        comp_scores=data["comp_scores"],
+        evaluations=data["evaluations"],
+    )
