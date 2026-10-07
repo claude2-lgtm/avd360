@@ -104,6 +104,25 @@ O admin pode adicionar/remover designações manualmente em qualquer caso.
 
 ## 📧 Configurar e-mail (opcional)
 
+### Opção recomendada: Google Apps Script (envia pela conta gp@grupogestao.co)
+
+Não exige configuração de DNS. Os e-mails saem da conta Google que implantar o script e ficam na pasta "Enviados" dela.
+
+1. Entre em [script.google.com](https://script.google.com) com a conta remetente e crie um **Novo projeto**.
+2. Cole o conteúdo de [`docs/apps_script_email.gs`](docs/apps_script_email.gs) e troque `COLE_AQUI_O_SEGREDO` por um valor secreto.
+3. **Implantar → Nova implantação → App da Web**, com "Executar como: Eu" e "Quem pode acessar: Qualquer pessoa". Autorize o acesso.
+4. No Render, configure:
+```
+EMAIL_ENABLED=true
+APPS_SCRIPT_URL=https://script.google.com/macros/s/.../exec
+APPS_SCRIPT_SECRET=<o mesmo valor secreto do passo 2>
+```
+
+Com isso, os botões **"Enviar ao colaborador"** e **"Enviar para todos"** passam a enviar automaticamente. Sem essa configuração, "Enviar ao colaborador" baixa o PDF e abre o Gmail já preenchido.
+
+### Alternativa: Brevo (exige autenticar o domínio no DNS)
+
+
 O envio é feito via API do [Brevo](https://www.brevo.com) (não usa SMTP direto, pois muitas hospedagens como o Render bloqueiam as portas SMTP tradicionais). O plano gratuito permite 300 e-mails por dia.
 
 Edite o arquivo `.env` (ou as Environment Variables da hospedagem):

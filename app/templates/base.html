@@ -379,6 +379,11 @@
         <div class="alert alert-success">✓ E-mail enviado com sucesso.</div>
         {% elif request.query_params.get('msg') == 'report_sent' %}
         <div class="alert alert-success">✓ Relatório enviado por e-mail para o colaborador.</div>
+        {% elif request.query_params.get('msg') == 'bulk_sent' %}
+        <div class="alert {% if request.query_params.get('failed') %}alert-error{% else %}alert-success{% endif %}">
+          ✓ {{ request.query_params.get('sent', '0') }} relatório(s) enviado(s) por e-mail.
+          {% if request.query_params.get('failed') %}<br>✗ Não enviados: {{ request.query_params.get('failed') }}{% endif %}
+        </div>
         {% elif request.query_params.get('msg') == 'email_error' %}
         <div class="alert alert-error">✗ Falha ao enviar o e-mail{% if request.query_params.get('detail') %}: {{ request.query_params.get('detail') }}{% else %}. Verifique a configuração de e-mail (Brevo).{% endif %}</div>
         {% endif %}

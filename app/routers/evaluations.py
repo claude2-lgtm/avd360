@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.templates_config import make_templates
 from sqlalchemy.orm import Session
+import asyncio
 from datetime import datetime
 from typing import Optional
 from urllib.parse import quote
@@ -14,7 +15,7 @@ from app.models.database import (
 from app.services.auth import get_current_user_from_cookie, require_admin
 from app.services.reports import get_competencies_for_position, aggregate_report_data
 from app.services.pdf import generate_report_from_data
-from app.services.email import send_individual_report
+from app.services.email import send_individual_report, AUTO_EMAIL_READY, EMAIL_FROM
 
 router = APIRouter(prefix="/evaluations")
 templates = make_templates()
@@ -266,7 +267,49 @@ async def reports_list(cycle_id: int, request: Request, db: Session = Depends(ge
         "current_user": user,
         "cycle": cycle,
         "users_data": users_data,
+        "auto_email": AUTO_EMAIL_READY,
+        "sendable_count": sum(1 for d in users_data if d["summary"]["overall"]["count"]),
     })
+
+
+@router.post("/reports/cycle/{cycle_id}/send-all")
+async def send_all_reports(cycle_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    cycle = db.query(EvaluationCycle).get(cycle_id)
+    if not cycle:
+        raise HTTPException(404)
+
+    users_in_cycle = (
+        db.query(User)
+        .join(Evaluation, Evaluation.evaluatee_id == User.id)
+        .filter(Evaluation.cycle_id == cycle_id, Evaluation.status == EvaluationStatus.submitted)
+        .distinct()
+        .order_by(User.name)
+        .all()
+    )
+
+    # Build PDFs first (sync work), then send a few at a time
+    jobs = []
+    for u in users_in_cycle:
+        data = aggregate_report_data(db, u.id, cycle_id)
+        jobs.append((u, generate_report_from_data(data)))
+
+    semaphore = asyncio.Semaphore(4)
+
+    async def send_one(u, pdf_bytes):
+        async with semaphore:
+            return u, await send_individual_report(
+                u.email, u.name, cycle.name, pdf_bytes, _report_filename(u, cycle_id)
+            )
+
+    results = await asyncio.gather(*(send_one(u, pdf) for u, pdf in jobs))
+    sent = sum(1 for _, r in results if r)
+    failed = [f"{u.name} ({r.error})" for u, r in results if not r]
+
+    url = f"/evaluations/reports/cycle/{cycle_id}?msg=bulk_sent&sent={sent}"
+    if failed:
+        url += f"&failed={quote('; '.join(failed))}"
+    return RedirectResponse(url, status_code=302)
 
 
 @router.get("/reports/{cycle_id}/{user_id}/pdf")
@@ -317,4 +360,6 @@ async def view_report(cycle_id: int, user_id: int, request: Request, db: Session
         "data": data,
         "cycle_id": cycle_id,
         "user_id": user_id,
+        "auto_email": AUTO_EMAIL_READY,
+        "gmail_account": EMAIL_FROM,
     })

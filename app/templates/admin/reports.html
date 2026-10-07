@@ -19,9 +19,27 @@
 </div>
 
 <div class="card">
-  <div class="card-header">
-    <div class="card-title">Relatórios Individuais</div>
-    <div class="card-subtitle">Acesse o relatório completo ou faça download em PDF</div>
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div>
+      <div class="card-title">Relatórios Individuais</div>
+      <div class="card-subtitle">Acesse o relatório completo ou faça download em PDF</div>
+    </div>
+    {% if sendable_count %}
+      {% if auto_email %}
+      <form method="POST" action="/evaluations/reports/cycle/{{ cycle.id }}/send-all"
+            onsubmit="if (!confirm('Enviar o relatório em PDF para os {{ sendable_count }} colaboradores avaliados neste ciclo? Cada um recebe apenas o próprio relatório.')) return false; this.querySelector('button').disabled = true; this.querySelector('button').innerText = 'Enviando... aguarde'; return true;">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Enviar para todos ({{ sendable_count }})
+        </button>
+      </form>
+      {% else %}
+      <button type="button" class="btn btn-outline btn-sm" disabled
+              title="Configure o envio automático (APPS_SCRIPT_URL no Render) para habilitar">
+        Enviar para todos — envio automático não configurado
+      </button>
+      {% endif %}
+    {% endif %}
   </div>
 
   {% if users_data %}

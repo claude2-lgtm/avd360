@@ -14,6 +14,12 @@ APP_URL = os.getenv("APP_URL", "https://avd360.onrender.com")
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
+# Google Apps Script web app deployed from the sender's Google account (gp@grupogestao.co).
+# When set, it takes precedence over Brevo. See docs/apps_script_email.gs.
+APPS_SCRIPT_URL = os.getenv("APPS_SCRIPT_URL", "")
+APPS_SCRIPT_SECRET = os.getenv("APPS_SCRIPT_SECRET", "")
+AUTO_EMAIL_READY = EMAIL_ENABLED and bool(APPS_SCRIPT_URL)
+
 
 @dataclass
 class EmailResult:
@@ -44,6 +50,8 @@ async def send_email(to: List[str], subject: str, body_html: str,
         names = [a["filename"] for a in attachments or []]
         print(f"[EMAIL SIMULADO] Para: {to} | Assunto: {subject} | Anexos: {names}", flush=True)
         return EmailResult(True)
+    if APPS_SCRIPT_URL:
+        return await _send_via_apps_script(to, subject, body_html, attachments)
     if not BREVO_API_KEY:
         print("[EMAIL ERRO] BREVO_API_KEY não configurada", flush=True)
         return EmailResult(False, "chave de API do Brevo não configurada (BREVO_API_KEY)")
@@ -77,6 +85,39 @@ async def send_email(to: List[str], subject: str, body_html: str,
     except Exception as e:
         print(f"[EMAIL ERRO] {e}", flush=True)
         return EmailResult(False, f"não foi possível conectar ao serviço de e-mail ({e})")
+
+
+async def _send_via_apps_script(to: List[str], subject: str, body_html: str,
+                                attachments: Optional[List[dict]]) -> EmailResult:
+    payload = {
+        "secret": APPS_SCRIPT_SECRET,
+        "to": ",".join(to),
+        "subject": subject,
+        "htmlBody": body_html,
+        "name": EMAIL_FROM_NAME,
+        "attachments": [
+            {"name": a["filename"], "content": base64.b64encode(a["content"]).decode("ascii"),
+             "mimeType": a.get("type", "application/pdf")}
+            for a in attachments or []
+        ],
+    }
+    try:
+        # Apps Script answers a POST with a redirect to the actual response
+        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+            response = await client.post(APPS_SCRIPT_URL, json=payload)
+        try:
+            body = response.json()
+        except ValueError:
+            print(f"[EMAIL ERRO] Apps Script {response.status_code} {response.text[:300]}", flush=True)
+            return EmailResult(False, "o Google Apps Script não respondeu corretamente "
+                                      "(confira se foi implantado com acesso para \"Qualquer pessoa\")")
+        if not body.get("ok"):
+            print(f"[EMAIL ERRO] Apps Script {body}", flush=True)
+            return EmailResult(False, f"o Google recusou o envio ({body.get('error', 'erro desconhecido')})")
+        return EmailResult(True)
+    except Exception as e:
+        print(f"[EMAIL ERRO] {e}", flush=True)
+        return EmailResult(False, f"não foi possível conectar ao Google Apps Script ({e})")
 
 
 async def notify_cycle_opened(users: list, cycle_name: str, end_date: str):
