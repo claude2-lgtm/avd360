@@ -6,7 +6,9 @@ from datetime import datetime
 
 from app.models.database import get_db, User, EvaluationCycle, Evaluation, EvaluationStatus, CycleStatus, UserRole
 from app.services.auth import get_current_user_from_cookie
-from app.services.reports import get_cycle_progress, get_user_cycle_progress, get_position_averages
+from app.services.reports import (
+    get_cycle_progress, get_user_cycle_progress, get_position_averages, MANAGER_POSITIONS
+)
 
 router = APIRouter()
 templates = make_templates()
@@ -22,10 +24,6 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         return await admin_dashboard(request, db, user)
     else:
         return await collaborator_dashboard(request, db, user)
-
-
-MANAGER_POSITIONS = ["Coordenador de Projetos", "Diretor Comercial", "Diretor de Projetos",
-                     "Diretor de Gestão", "Diretor de Gestao", "Presidente"]
 
 
 def _pending_by_evaluator(db: Session, cycle_id: int):

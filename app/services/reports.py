@@ -52,6 +52,10 @@ def get_user_cycle_progress(db: Session, user_id: int, cycle_id: int) -> Dict:
     return {"total": total, "submitted": submitted, "pending": total - submitted, "pct": pct}
 
 
+# Evaluations made by these positions count as "Superiores". The accented spelling is kept
+# in case it was typed that way in a user's record; the official one (POSITIONS) has no accent.
+MANAGER_POSITIONS = ["Coordenador de Projetos"] + DIRECTOR_POSITIONS + ["Diretor de Gestão"]
+
 # Which position averages each person sees next to their own result
 EXTRA_REFERENCE_POSITIONS = {
     "Coordenador de Projetos": ["Consultor de Projetos"],
@@ -113,11 +117,9 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int,
 
     self_evals = [e for e in evaluations if e.is_self_evaluation]
     peer_evals = [e for e in evaluations if not e.is_self_evaluation and
-                  e.evaluator.position not in ["Coordenador de Projetos", "Diretor Comercial",
-                                                "Diretor de Projetos", "Diretor de Gestão", "Presidente"]]
+                  e.evaluator.position not in MANAGER_POSITIONS]
     manager_evals = [e for e in evaluations if not e.is_self_evaluation and
-                     e.evaluator.position in ["Coordenador de Projetos", "Diretor Comercial",
-                                              "Diretor de Projetos", "Diretor de Gestão", "Presidente"]]
+                     e.evaluator.position in MANAGER_POSITIONS]
 
     def avg_score(evals):
         scores = []
@@ -166,9 +168,7 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int,
     ev_details = []
     for ev in evaluations:
         rel = "Autoavaliação" if ev.is_self_evaluation else (
-            "Superior" if ev.evaluator.position in ["Coordenador de Projetos", "Diretor Comercial",
-                                                     "Diretor de Projetos", "Diretor de Gestão", "Presidente"]
-            else "Par"
+            "Superior" if ev.evaluator.position in MANAGER_POSITIONS else "Par"
         )
         answers = sorted(ev.answers, key=answer_sort_key)
         scores = [a.score for a in answers if a.score is not None]
