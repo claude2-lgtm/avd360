@@ -255,7 +255,7 @@ async def reports_list(cycle_id: int, request: Request, db: Session = Depends(ge
 
     users_data = []
     for u in users_in_cycle:
-        data = aggregate_report_data(db, u.id, cycle_id)
+        data = aggregate_report_data(db, u.id, cycle_id, include_benchmark=False)
         users_data.append({
             "user": u,
             "summary": data["summary"],
@@ -290,8 +290,9 @@ async def send_all_reports(cycle_id: int, request: Request, db: Session = Depend
 
     # Build PDFs first (sync work), then send a few at a time
     jobs = []
+    benchmark_cache = {}
     for u in users_in_cycle:
-        data = aggregate_report_data(db, u.id, cycle_id)
+        data = aggregate_report_data(db, u.id, cycle_id, benchmark_cache=benchmark_cache)
         jobs.append((u, generate_report_from_data(data)))
 
     semaphore = asyncio.Semaphore(4)

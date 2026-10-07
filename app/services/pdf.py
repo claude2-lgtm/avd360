@@ -13,7 +13,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from xml.sax.saxutils import escape as xml_escape
 from io import BytesIO
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json
 
 # Brand colors
@@ -89,7 +89,7 @@ def build_header(elements, styles, user_name: str, position: str, department: st
     elements.append(Spacer(1, 6 * mm))
 
 
-def build_summary_scores(elements, styles, summary: Dict):
+def build_summary_scores(elements, styles, summary: Dict, benchmark: Optional[Dict] = None):
     elements.append(Paragraph("Resumo Geral", styles["section_title"]))
     elements.append(HRFlowable(width="100%", thickness=1, color=PURPLE, spaceAfter=4 * mm))
 
@@ -103,19 +103,36 @@ def build_summary_scores(elements, styles, summary: Dict):
         score_str = f"{score:.2f}" if score else "—"
         rows.append([label, str(count), score_str])
 
-    t = Table(rows, colWidths=[70 * mm, 40 * mm, 70 * mm])
-    t.setStyle(TableStyle([
+    overall_row = len(rows) - 1
+    style = [
         ("BACKGROUND", (0, 0), (-1, 0), PURPLE),
         ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 10),
         ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, GRAY_MID]),
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
         ("PADDING", (0, 0), (-1, -1), 8),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EDE9FF")),
-    ]))
+        ("FONTNAME", (0, overall_row), (-1, overall_row), "Helvetica-Bold"),
+        ("BACKGROUND", (0, overall_row), (-1, overall_row), colors.HexColor("#EDE9FF")),
+    ]
+
+    # Reference line: average of everyone with the same position in this cycle
+    if benchmark:
+        rows.append([
+            Paragraph(f"Média do cargo<br/><font size='8' color='#666666'>{_esc(benchmark['position'])}</font>",
+                      styles["cell_summary"]),
+            f"{benchmark['count']} pessoa(s)",
+            f"{benchmark['avg']:.2f}",
+        ])
+        style += [
+            ("BACKGROUND", (0, -1), (-1, -1), WHITE),
+            ("TEXTCOLOR", (1, -1), (-1, -1), TEXT_MED),
+        ]
+
+    t = Table(rows, colWidths=[70 * mm, 40 * mm, 70 * mm])
+    t.setStyle(TableStyle(style))
     elements.append(t)
     elements.append(Spacer(1, 6 * mm))
 
@@ -179,6 +196,11 @@ def _competency_chart_drawing(comp_scores: List[Dict]) -> Drawing:
             d.add(Rect(bar_x, center - bh / 2, bw, bh, fillColor=PURPLE, strokeColor=None))
             d.add(String(bar_x + bw + 3, center - 3, f"{avg:.2f}", fontName="Helvetica-Bold",
                          fontSize=8, fillColor=TEXT_DARK))
+        pos_avg = s.get("position_avg")
+        if pos_avg is not None:
+            px = bar_x + bar_w * min(pos_avg, 5) / 5
+            th = min(row_h - 2, 6.5 * mm)
+            d.add(Line(px, center - th / 2, px, center + th / 2, strokeColor=TEXT_DARK, strokeWidth=1.6))
         else:
             d.add(String(bar_x + 3, center - 3, "sem nota", fontName=font, fontSize=7,
                          fillColor=colors.grey))
@@ -192,7 +214,10 @@ def build_competency_chart(elements, styles, comp_scores: List[Dict]):
 
     elements.append(Paragraph("Desempenho por Competência", styles["section_title"]))
     elements.append(HRFlowable(width="100%", thickness=1, color=PURPLE, spaceAfter=4 * mm))
-    elements.append(Paragraph("Média de pontuação por competência (escala de 1 a 5)", styles["chart_caption"]))
+    caption = "Média de pontuação por competência (escala de 1 a 5)"
+    if any("position_avg" in s for s in comp_scores):
+        caption += " — barra roxa: sua média · traço preto: média do cargo"
+    elements.append(Paragraph(caption, styles["chart_caption"]))
 
     # Split long lists so each drawing fits on a single page
     chunk = 18
@@ -202,17 +227,23 @@ def build_competency_chart(elements, styles, comp_scores: List[Dict]):
     elements.append(Spacer(1, 2 * mm))
 
     # Table detail
-    rows = [["Competência", "Grupo", "Auto", "Pares", "Média"]]
+    has_position = any("position_avg" in s for s in comp_scores)
+    rows = [["Competência", "Grupo", "Auto", "Pares", "Média"] + (["Cargo"] if has_position else [])]
     for s in comp_scores:
-        rows.append([
+        row = [
             Paragraph(_esc(s.get("name", "")), styles["cell"]),
             Paragraph(_esc(s.get("group", "")), styles["cell"]),
             f"{s['self']:.1f}" if s.get("self") else "—",
             f"{s['peers']:.1f}" if s.get("peers") else "—",
             f"{s['avg']:.2f}" if s.get("avg") else "—",
-        ])
+        ]
+        if has_position:
+            row.append(f"{s['position_avg']:.2f}" if s.get("position_avg") else "—")
+        rows.append(row)
 
-    t = Table(rows, colWidths=[75 * mm, 45 * mm, 20 * mm, 20 * mm, 20 * mm], repeatRows=1)
+    widths = ([66 * mm, 42 * mm, 18 * mm, 18 * mm, 18 * mm, 18 * mm] if has_position
+              else [75 * mm, 45 * mm, 20 * mm, 20 * mm, 20 * mm])
+    t = Table(rows, colWidths=widths, repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), PURPLE),
         ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
@@ -298,6 +329,7 @@ def generate_individual_report(
     summary: Dict,
     comp_scores: List[Dict],
     evaluations: List[Dict],
+    position_benchmark: Optional[Dict] = None,
 ) -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -321,6 +353,7 @@ def generate_individual_report(
         "eval_name": ParagraphStyle("evn", fontSize=10, textColor=PURPLE_DARKEST, fontName="Helvetica-Bold",
                                     spaceBefore=2),
         "cell": ParagraphStyle("cell", fontSize=8, leading=10, textColor=TEXT_DARK),
+        "cell_summary": ParagraphStyle("cs", fontSize=10, leading=12, textColor=TEXT_DARK),
         "chart_caption": ParagraphStyle("cc", fontSize=8, textColor=TEXT_MED, spaceAfter=2 * mm),
         "score_cell": ParagraphStyle("sc", fontSize=9, leading=11, fontName="Helvetica-Bold",
                                      alignment=TA_CENTER),
@@ -329,7 +362,7 @@ def generate_individual_report(
 
     elements = []
     build_header(elements, styles, user_name, position, department, cycle_name)
-    build_summary_scores(elements, styles, summary)
+    build_summary_scores(elements, styles, summary, position_benchmark)
     build_competency_chart(elements, styles, comp_scores)
     build_evaluations_section(elements, styles, evaluations)
 
@@ -349,4 +382,5 @@ def generate_report_from_data(data: Dict) -> bytes:
         summary=data["summary"],
         comp_scores=data["comp_scores"],
         evaluations=data["evaluations"],
+        position_benchmark=data.get("position_benchmark"),
     )

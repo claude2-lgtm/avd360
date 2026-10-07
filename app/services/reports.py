@@ -52,8 +52,51 @@ def get_user_cycle_progress(db: Session, user_id: int, cycle_id: int) -> Dict:
     return {"total": total, "submitted": submitted, "pending": total - submitted, "pct": pct}
 
 
-def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int) -> Dict:
-    """Build full report data for one user in one cycle."""
+def get_position_benchmark(db: Session, cycle_id: int, position: str) -> Optional[Dict]:
+    """Average results of everyone with the given position who was evaluated in the cycle.
+
+    The overall figure is the mean of each person's overall average, so every
+    person weighs the same regardless of how many evaluations they received.
+    """
+    if not position:
+        return None
+    peers = (
+        db.query(User)
+        .join(Evaluation, Evaluation.evaluatee_id == User.id)
+        .filter(
+            Evaluation.cycle_id == cycle_id,
+            Evaluation.status == EvaluationStatus.submitted,
+            User.position == position,
+        )
+        .distinct()
+        .all()
+    )
+    overall, per_comp = [], {}
+    for peer in peers:
+        data = aggregate_report_data(db, peer.id, cycle_id, include_benchmark=False)
+        if data["summary"]["overall"]["avg"] is not None:
+            overall.append(data["summary"]["overall"]["avg"])
+        for c in data["comp_scores"]:
+            if c["avg"] is not None:
+                per_comp.setdefault(c["id"], []).append(c["avg"])
+    if not overall:
+        return None
+    return {
+        "position": position,
+        "count": len(overall),
+        "avg": sum(overall) / len(overall),
+        "comp_avgs": {cid: sum(v) / len(v) for cid, v in per_comp.items()},
+    }
+
+
+def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int,
+                          include_benchmark: bool = True,
+                          benchmark_cache: Optional[Dict] = None) -> Dict:
+    """Build full report data for one user in one cycle.
+
+    Pass the same benchmark_cache dict when building many reports of a cycle so
+    each position's average is computed only once.
+    """
     evaluatee = db.query(User).get(evaluatee_id)
     cycle = db.query(EvaluationCycle).get(cycle_id)
 
@@ -141,10 +184,23 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int) -> Dict
         })
     ev_details.sort(key=lambda e: (rel_order.get(e["relationship"], 9), e["evaluator_name"]))
 
+    benchmark = None
+    if include_benchmark:
+        if benchmark_cache is not None and evaluatee.position in benchmark_cache:
+            benchmark = benchmark_cache[evaluatee.position]
+        else:
+            benchmark = get_position_benchmark(db, cycle_id, evaluatee.position)
+            if benchmark_cache is not None:
+                benchmark_cache[evaluatee.position] = benchmark
+        if benchmark:
+            for c in comp_scores:
+                c["position_avg"] = benchmark["comp_avgs"].get(c["id"])
+
     return {
         "user": evaluatee,
         "cycle": cycle,
         "summary": summary,
         "comp_scores": comp_scores,
         "evaluations": ev_details,
+        "position_benchmark": benchmark,
     }
