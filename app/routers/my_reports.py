@@ -2,25 +2,24 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
-from app.models.database import get_db, Evaluation, EvaluationCycle, EvaluationStatus, CycleStatus
+from app.models.database import get_db, Evaluation, EvaluationCycle, EvaluationStatus
 from app.services.auth import get_current_user_from_cookie
 from app.services.reports import aggregate_report_data
 from app.services.pdf import generate_report_from_data
 from app.templates_config import make_templates
 
-# Collaborators see only their own reports, and only once the cycle is closed
+# Collaborators see only their own reports, for any cycle in which they received a submitted evaluation
 router = APIRouter(prefix="/my-reports")
 templates = make_templates()
 
 
-def _my_closed_cycles(db: Session, user_id: int):
+def _my_cycles(db: Session, user_id: int):
     return (
         db.query(EvaluationCycle)
         .join(Evaluation, Evaluation.cycle_id == EvaluationCycle.id)
         .filter(
             Evaluation.evaluatee_id == user_id,
             Evaluation.status == EvaluationStatus.submitted,
-            EvaluationCycle.status == CycleStatus.closed,
         )
         .distinct()
         .order_by(EvaluationCycle.created_at.desc())
@@ -29,7 +28,7 @@ def _my_closed_cycles(db: Session, user_id: int):
 
 
 def _get_my_report(db: Session, user, cycle_id: int):
-    if cycle_id not in {c.id for c in _my_closed_cycles(db, user.id)}:
+    if cycle_id not in {c.id for c in _my_cycles(db, user.id)}:
         raise HTTPException(404)
     return aggregate_report_data(db, user.id, cycle_id)
 
@@ -41,7 +40,7 @@ async def my_reports(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=302)
 
     reports = []
-    for cycle in _my_closed_cycles(db, user.id):
+    for cycle in _my_cycles(db, user.id):
         data = aggregate_report_data(db, user.id, cycle.id)
         reports.append({
             "cycle": cycle,
