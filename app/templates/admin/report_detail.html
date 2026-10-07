@@ -8,13 +8,31 @@
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
   Exportar PDF
 </a>
-<form method="POST" action="/evaluations/reports/{{ cycle_id }}/{{ user_id }}/send" style="display:inline"
-      onsubmit="return confirm('Enviar o relatório em PDF para {{ data.user.name }} ({{ data.user.email }})?')">
-  <button type="submit" class="btn btn-outline btn-sm">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    Enviar ao colaborador
-  </button>
-</form>
+{# Sends from the admin's own Gmail: downloads the PDF and opens a pre-filled compose window #}
+{% set cycle_name = data.cycle.name if data.cycle else '' %}
+{% set mail_subject = 'AVD 360° — Seu relatório de avaliação: ' ~ cycle_name %}
+{% set mail_body = 'Olá, ' ~ data.user.name ~ '!\n\nO ciclo de avaliação ' ~ cycle_name ~ ' foi concluído.\n\nSeu relatório individual de desempenho está em anexo neste e-mail (PDF).\n\nEm caso de dúvidas, procure seu gestor ou o RH.\n\nGrupo Gestão Consultoria' %}
+<button type="button" class="btn btn-outline btn-sm" id="send-report-btn"
+        data-pdf="/evaluations/reports/{{ cycle_id }}/{{ user_id }}/pdf"
+        data-gmail="https://mail.google.com/mail/?view=cm&fs=1&to={{ data.user.email|urlencode }}&su={{ mail_subject|urlencode }}&body={{ mail_body|urlencode }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+  Enviar ao colaborador
+</button>
+<script>
+  document.getElementById('send-report-btn').addEventListener('click', function () {
+    window.open(this.dataset.gmail, '_blank');
+    window.location.href = this.dataset.pdf;
+    document.getElementById('send-report-hint').style.display = 'block';
+  });
+</script>
+{% endblock %}
+
+{% block flash %}
+{{ super() }}
+<div class="alert alert-info" id="send-report-hint" style="display:none">
+  📎 O PDF de <strong>{{ data.user.name }}</strong> foi baixado e o Gmail abriu em outra aba com o e-mail para
+  <strong>{{ data.user.email }}</strong> já preenchido. Arraste o arquivo baixado para o e-mail e clique em <strong>Enviar</strong>.
+</div>
 {% endblock %}
 
 {% block content %}
