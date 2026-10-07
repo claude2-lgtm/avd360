@@ -60,7 +60,7 @@
 {% endblock %}
 
 {% block content %}
-{% set bench = data.position_benchmark %}
+{% set refs = data.position_averages or [] %}
 <!-- Employee header -->
 <div class="card mb-16" style="margin-bottom:20px;background:linear-gradient(135deg,var(--purple-dark),var(--purple));color:#fff;border:none">
   <div style="display:flex;align-items:center;gap:16px">
@@ -93,14 +93,37 @@
     <div class="stat-sub">{{ s.count }} avaliação(ões)</div>
   </div>
   {% endfor %}
-  {% if bench %}
+  {% if refs|length <= 2 %}
+  {% for ref in refs %}
   <div class="stat-card">
     <div class="stat-label">Média do Cargo</div>
-    <div class="stat-value" style="color:var(--text2)">{{ "%.2f"|format(bench.avg) }}</div>
-    <div class="stat-sub">{{ bench.position }}</div>
+    <div class="stat-value" style="color:var(--text2)">{{ "%.2f"|format(ref.avg) }}</div>
+    <div class="stat-sub">{{ ref.position }}</div>
   </div>
+  {% endfor %}
   {% endif %}
 </div>
+
+{% if refs|length > 2 %}
+<div class="card" style="margin-bottom:20px">
+  <div class="card-title" style="margin-bottom:12px">Médias por cargo</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Cargo</th><th style="text-align:center">Média</th></tr></thead>
+      <tbody>
+        {% for ref in refs %}
+        <tr>
+          <td style="font-size:13px;{% if ref.position == data.user.position %}font-weight:600{% endif %}">
+            {{ ref.position }}{% if ref.position == data.user.position %} <span class="badge badge-purple" style="font-size:10px">{% if self_view %}seu cargo{% else %}cargo do colaborador{% endif %}</span>{% endif %}
+          </td>
+          <td style="text-align:center;font-size:14px;font-weight:600;color:var(--text2)">{{ "%.2f"|format(ref.avg) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 <!-- Competencies breakdown -->
 {% if data.comp_scores %}

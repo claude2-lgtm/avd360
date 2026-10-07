@@ -17,6 +17,20 @@
 {% endblock %}
 
 {% block content %}
+{% set c = selected_cycle %}
+{% if cycles|length > 1 %}
+<form method="GET" action="/dashboard" style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+  <label for="cycle_id" style="font-size:13px;color:var(--text2)">Ciclo:</label>
+  <select id="cycle_id" name="cycle_id" class="form-control" style="max-width:320px" onchange="this.form.submit()">
+    {% for cy in cycles %}
+    <option value="{{ cy.id }}" {% if c and cy.id == c.id %}selected{% endif %}>
+      {{ cy.name }}{% if cy.status.value == 'active' %} (ativo){% else %} (encerrado){% endif %}
+    </option>
+    {% endfor %}
+  </select>
+</form>
+{% endif %}
+
 <!-- Stats -->
 <div class="stats-grid">
   <div class="stat-card accent">
@@ -24,12 +38,7 @@
     <div class="stat-value">{{ total_users }}</div>
     <div class="stat-sub">usuários ativos</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Ciclos</div>
-    <div class="stat-value">{{ total_cycles }}</div>
-    <div class="stat-sub">total histórico</div>
-  </div>
-  {% if active_cycle and cycle_stats %}
+  {% if c and cycle_stats %}
   <div class="stat-card">
     <div class="stat-label">Avaliações Concluídas</div>
     <div class="stat-value">{{ cycle_stats.submitted }}</div>
@@ -40,36 +49,44 @@
     <div class="stat-value">{{ cycle_stats.pct }}%</div>
     <div class="stat-sub">{{ cycle_stats.pending }} pendentes</div>
   </div>
+  <div class="stat-card">
+    <div class="stat-label">Média Geral da Empresa</div>
+    <div class="stat-value">{% if company_avg %}{{ "%.2f"|format(company_avg) }}{% else %}—{% endif %}</div>
+    <div class="stat-sub">média de todos os avaliados</div>
+  </div>
   {% else %}
   <div class="stat-card">
-    <div class="stat-label">Ciclo Ativo</div>
-    <div class="stat-value" style="font-size:18px;color:#aaa">—</div>
-    <div class="stat-sub">nenhum ativo</div>
+    <div class="stat-label">Ciclos</div>
+    <div class="stat-value">{{ total_cycles }}</div>
+    <div class="stat-sub">nenhum ciclo iniciado</div>
   </div>
   {% endif %}
 </div>
 
 <div class="grid-2" style="gap:24px">
 
-  <!-- Active cycle card -->
+  <!-- Selected cycle card -->
   <div class="card">
     <div class="card-header">
       <div>
-        <div class="card-title">Ciclo Atual</div>
+        <div class="card-title">{% if c and c.status.value == 'active' %}Ciclo Atual{% else %}Ciclo Selecionado{% endif %}</div>
         <div class="card-subtitle">Status e progresso</div>
       </div>
       <a href="/cycles" class="btn btn-outline btn-sm">Ver todos</a>
     </div>
 
-    {% if active_cycle %}
+    {% if c %}
     <div style="margin-bottom:16px">
       <div class="flex-between mb-16" style="margin-bottom:8px">
-        <span style="font-weight:600;font-size:15px">{{ active_cycle.name }}</span>
-        <span class="badge badge-green">Ativo</span>
+        <span style="font-weight:600;font-size:15px">{{ c.name }}</span>
+        {% if c.status.value == 'active' %}<span class="badge badge-green">Ativo</span>{% else %}<span class="badge badge-gray">Encerrado</span>{% endif %}
       </div>
-      {% if active_cycle.end_date %}
+      {% if c.end_date %}
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-        Prazo: {{ active_cycle.end_date.strftime('%d/%m/%Y') }}
+        Prazo: {{ c.end_date.strftime('%d/%m/%Y') }}
+        {% if days_left is not none %}
+          · {% if days_left > 1 %}faltam {{ days_left }} dias{% elif days_left == 1 %}falta 1 dia{% elif days_left == 0 %}<strong style="color:var(--amber)">termina hoje</strong>{% else %}<strong style="color:var(--red)">prazo vencido há {{ -days_left }} dia(s)</strong>{% endif %}
+        {% endif %}
       </div>
       {% endif %}
       {% if cycle_stats %}
@@ -77,63 +94,133 @@
         {{ cycle_stats.submitted }} de {{ cycle_stats.total }} avaliações concluídas
       </div>
       <div class="progress-bar">
-        <div class="progress-fill {% if cycle_stats.pct == 100 %}green{% elif cycle_stats.pct >= 50 %}{% else %}{% endif %}"
-             style="width:{{ cycle_stats.pct }}%"></div>
+        <div class="progress-fill {% if cycle_stats.pct == 100 %}green{% endif %}" style="width:{{ cycle_stats.pct }}%"></div>
       </div>
       <div style="text-align:right;font-size:11px;color:var(--text3);margin-top:4px">{{ cycle_stats.pct }}%</div>
       {% endif %}
-      <div style="margin-top:12px;display:flex;gap:8px">
-        <a href="/cycles/{{ active_cycle.id }}/assignments" class="btn btn-outline btn-sm">Gerenciar designações</a>
-        <a href="/evaluations/reports/cycle/{{ active_cycle.id }}" class="btn btn-primary btn-sm">Ver relatórios</a>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <a href="/cycles/{{ c.id }}/assignments" class="btn btn-outline btn-sm">Gerenciar designações</a>
+        <a href="/evaluations/reports/cycle/{{ c.id }}" class="btn btn-primary btn-sm">Ver relatórios</a>
         {% if cycle_stats and cycle_stats.submitted > 0 %}
-        <a href="/cycles/{{ active_cycle.id }}/export.csv" class="btn btn-outline btn-sm">Exportar CSV</a>
+        <a href="/cycles/{{ c.id }}/export.csv" class="btn btn-outline btn-sm">Exportar CSV</a>
         {% endif %}
       </div>
     </div>
     {% else %}
     <div class="empty-state">
-      <p>Nenhum ciclo ativo no momento.</p>
+      <p>Nenhum ciclo iniciado ainda.</p>
       <a href="/cycles" class="btn btn-primary btn-sm" style="margin-top:12px">Criar ciclo</a>
     </div>
     {% endif %}
   </div>
 
-  <!-- Pending by user -->
+  <!-- Averages by position -->
   <div class="card">
     <div class="card-header">
       <div>
-        <div class="card-title">Avaliações Pendentes</div>
-        <div class="card-subtitle">Por colaborador no ciclo ativo</div>
+        <div class="card-title">Médias por Cargo</div>
+        <div class="card-subtitle">Média geral de cada cargo{% if c %} em {{ c.name }}{% endif %}</div>
       </div>
     </div>
-
-    {% if users_pending %}
-    <div style="display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto">
-      {% for item in users_pending %}
-      <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">
-          {{ item.user.name[:2].upper() }}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.user.name }}</div>
-          <div style="font-size:11px;color:var(--text3)">{{ item.user.position }}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:12px;color:var(--text2)">{{ item.progress.pending }} pendentes</div>
-          <div class="progress-bar" style="width:80px;margin-top:4px">
-            <div class="progress-fill" style="width:{{ item.progress.pct }}%"></div>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
+    {% if position_averages %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cargo</th>
+            <th style="text-align:center">Avaliados</th>
+            <th style="text-align:center">Média</th>
+            <th style="text-align:center">Menor</th>
+            <th style="text-align:center">Maior</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in position_averages %}
+          <tr>
+            <td style="font-size:13px;font-weight:500">{{ a.position }}</td>
+            <td style="text-align:center;font-size:13px">{{ a.count }}</td>
+            <td style="text-align:center;font-size:14px;font-weight:600;color:{% if a.avg >= 4 %}var(--green){% elif a.avg >= 3 %}var(--amber){% else %}var(--red){% endif %}">{{ "%.2f"|format(a.avg) }}</td>
+            <td style="text-align:center;font-size:12px;color:var(--text3)">{{ "%.2f"|format(a.min) }}</td>
+            <td style="text-align:center;font-size:12px;color:var(--text3)">{{ "%.2f"|format(a.max) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Considera o cargo cadastrado em Colaboradores e apenas avaliações concluídas.</div>
     {% else %}
-    <div class="empty-state">
-      <p>{% if active_cycle %}Todos em dia! ✓{% else %}Nenhum ciclo ativo.{% endif %}</p>
-    </div>
+    <div class="empty-state"><p>Nenhuma avaliação concluída neste ciclo ainda.</p></div>
     {% endif %}
   </div>
 
+</div>
+
+<!-- Pending evaluations -->
+<div class="card" style="margin-top:24px">
+  <div class="card-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div>
+      <div class="card-title">Avaliações Pendentes</div>
+      <div class="card-subtitle">
+        {% if pending_groups %}
+        {{ pending_total }} avaliação(ões) pendente(s) · {{ pending_groups|length }} avaliador(es) com pendência ·
+        {{ pending_in_progress }} em andamento · {{ pending_total - pending_in_progress }} não iniciada(s)
+        {% elif c %}Quem ainda precisa avaliar quem{% else %}Nenhum ciclo iniciado{% endif %}
+      </div>
+    </div>
+    {% if pending_groups %}
+    <input type="search" id="pending-search" class="form-control" placeholder="Buscar por nome…" style="max-width:240px">
+    {% endif %}
+  </div>
+
+  {% if pending_groups %}
+  <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Clique em um avaliador para ver quem ele ainda precisa avaliar.</div>
+  <div id="pending-list" style="display:flex;flex-direction:column;max-height:520px;overflow-y:auto">
+    {% for g in pending_groups %}
+    <details class="pending-item" data-search="{{ (g.evaluator.name ~ ' ' ~ (g.pending|map(attribute='evaluatee.name')|join(' ')))|lower }}"
+             style="border-bottom:1px solid var(--border);padding:10px 0">
+      <summary style="display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--purple-light);color:var(--purple-mid);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">
+          {{ g.evaluator.name[:2].upper() }}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">{{ g.evaluator.name }}</div>
+          <div style="font-size:11px;color:var(--text3)">{{ g.evaluator.position or 'Sem cargo' }}{% if g.evaluator.department %} · {{ g.evaluator.department }}{% endif %} · {{ g.evaluator.email }}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:12px;color:var(--text2)"><strong style="color:var(--red)">{{ g.pending|length }}</strong> pendente(s) · {{ g.done }}/{{ g.total }} feitas</div>
+          <div class="progress-bar" style="width:120px;margin-top:4px;margin-left:auto">
+            <div class="progress-fill" style="width:{{ ((g.done / g.total * 100) if g.total else 0)|int }}%"></div>
+          </div>
+        </div>
+      </summary>
+      <div style="margin:10px 0 0 44px;display:flex;flex-direction:column;gap:6px">
+        {% for it in g.pending %}
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+          <span style="flex:1">
+            {% if it.kind == 'Autoavaliação' %}Autoavaliação{% else %}Avaliar <strong>{{ it.evaluatee.name }}</strong>
+            <span style="font-size:11px;color:var(--text3)">{{ it.kind|lower }}{% if it.evaluatee.position %} · {{ it.evaluatee.position }}{% endif %}</span>{% endif %}
+          </span>
+          {% if it.started %}<span class="badge badge-amber">Em andamento</span>{% else %}<span class="badge badge-red">Não iniciada</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  <script>
+    document.getElementById('pending-search').addEventListener('input', function () {
+      var q = this.value.trim().toLowerCase();
+      document.querySelectorAll('#pending-list .pending-item').forEach(function (el) {
+        el.style.display = !q || el.dataset.search.indexOf(q) !== -1 ? '' : 'none';
+        el.open = !!q;
+      });
+    });
+  </script>
+  {% else %}
+  <div class="empty-state">
+    <p>{% if c %}Todos em dia! ✓ Nenhuma avaliação pendente neste ciclo.{% else %}Nenhum ciclo iniciado.{% endif %}</p>
+  </div>
+  {% endif %}
 </div>
 
 <!-- Recent cycles -->

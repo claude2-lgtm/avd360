@@ -12,6 +12,8 @@ from reportlab.lib.utils import simpleSplit
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from xml.sax.saxutils import escape as xml_escape
 from io import BytesIO
+from urllib.parse import quote
+import unicodedata
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import json
@@ -89,7 +91,8 @@ def build_header(elements, styles, user_name: str, position: str, department: st
     elements.append(Spacer(1, 6 * mm))
 
 
-def build_summary_scores(elements, styles, summary: Dict, benchmark: Optional[Dict] = None):
+def build_summary_scores(elements, styles, summary: Dict,
+                         position_averages: Optional[List[Dict]] = None):
     elements.append(Paragraph("Resumo Geral", styles["section_title"]))
     elements.append(HRFlowable(width="100%", thickness=1, color=PURPLE, spaceAfter=4 * mm))
 
@@ -118,17 +121,19 @@ def build_summary_scores(elements, styles, summary: Dict, benchmark: Optional[Di
         ("BACKGROUND", (0, overall_row), (-1, overall_row), colors.HexColor("#EDE9FF")),
     ]
 
-    # Reference line: average of everyone with the same position in this cycle
-    if benchmark:
+    # Reference lines: average of everyone with a given position in this cycle
+    for ref in position_averages or []:
         rows.append([
-            Paragraph(f"Média do cargo<br/><font size='8' color='#666666'>{_esc(benchmark['position'])}</font>",
+            Paragraph(f"Média do cargo<br/><font size='8' color='#666666'>{_esc(ref['position'])}</font>",
                       styles["cell_summary"]),
             "",
-            f"{benchmark['avg']:.2f}",
+            f"{ref['avg']:.2f}",
         ])
+    if position_averages:
+        first_ref = overall_row + 1
         style += [
-            ("BACKGROUND", (0, -1), (-1, -1), WHITE),
-            ("TEXTCOLOR", (1, -1), (-1, -1), TEXT_MED),
+            ("BACKGROUND", (0, first_ref), (-1, -1), WHITE),
+            ("TEXTCOLOR", (1, first_ref), (-1, -1), TEXT_MED),
         ]
 
     t = Table(rows, colWidths=[70 * mm, 40 * mm, 70 * mm])
@@ -315,7 +320,7 @@ def generate_individual_report(
     summary: Dict,
     comp_scores: List[Dict],
     evaluations: List[Dict],
-    position_benchmark: Optional[Dict] = None,
+    position_averages: Optional[List[Dict]] = None,
 ) -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -348,7 +353,7 @@ def generate_individual_report(
 
     elements = []
     build_header(elements, styles, user_name, position, department, cycle_name)
-    build_summary_scores(elements, styles, summary, position_benchmark)
+    build_summary_scores(elements, styles, summary, position_averages)
     build_competency_chart(elements, styles, comp_scores)
     build_evaluations_section(elements, styles, evaluations)
 
@@ -368,5 +373,15 @@ def generate_report_from_data(data: Dict) -> bytes:
         summary=data["summary"],
         comp_scores=data["comp_scores"],
         evaluations=data["evaluations"],
-        position_benchmark=data.get("position_benchmark"),
+        position_averages=data.get("position_averages"),
     )
+
+
+def report_filename(user_name: str, cycle_id: int) -> str:
+    return f"AVD_{user_name.replace(' ', '_')}_{cycle_id}.pdf"
+
+
+def attachment_header(filename: str) -> str:
+    """Content-Disposition that survives accented names (ASCII fallback + UTF-8 filename*)."""
+    ascii_name = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"

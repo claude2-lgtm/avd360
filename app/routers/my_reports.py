@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db, Evaluation, EvaluationCycle, EvaluationStatus
 from app.services.auth import get_current_user_from_cookie
 from app.services.reports import aggregate_report_data
-from app.services.pdf import generate_report_from_data
+from app.services.pdf import generate_report_from_data, report_filename, attachment_header
 from app.templates_config import make_templates
 
 # Collaborators see only their own reports, for any cycle in which they received a submitted evaluation
@@ -83,6 +83,6 @@ async def my_report_pdf(cycle_id: int, request: Request, db: Session = Depends(g
         content=generate_report_from_data(data),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="AVD_{user.name.replace(" ", "_")}_{cycle_id}.pdf"'
+            "Content-Disposition": attachment_header(report_filename(user.name, cycle_id))
         },
     )

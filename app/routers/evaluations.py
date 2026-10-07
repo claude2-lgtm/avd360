@@ -14,7 +14,7 @@ from app.models.database import (
 )
 from app.services.auth import get_current_user_from_cookie, require_admin
 from app.services.reports import get_competencies_for_position, aggregate_report_data
-from app.services.pdf import generate_report_from_data
+from app.services.pdf import generate_report_from_data, report_filename, attachment_header
 from app.services.email import send_individual_report, AUTO_EMAIL_READY, EMAIL_FROM
 
 router = APIRouter(prefix="/evaluations")
@@ -300,7 +300,7 @@ async def send_all_reports(cycle_id: int, request: Request, db: Session = Depend
     async def send_one(u, pdf_bytes):
         async with semaphore:
             return u, await send_individual_report(
-                u.email, u.name, cycle.name, pdf_bytes, _report_filename(u, cycle_id)
+                u.email, u.name, cycle.name, pdf_bytes, report_filename(u.name, cycle_id)
             )
 
     results = await asyncio.gather(*(send_one(u, pdf) for u, pdf in jobs))
@@ -323,13 +323,9 @@ async def download_pdf(cycle_id: int, user_id: int, request: Request, db: Sessio
         content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{_report_filename(data["user"], cycle_id)}"'
+            "Content-Disposition": attachment_header(report_filename(data["user"].name, cycle_id))
         },
     )
-
-
-def _report_filename(u: User, cycle_id: int) -> str:
-    return f"AVD_{u.name.replace(' ', '_')}_{cycle_id}.pdf"
 
 
 @router.post("/reports/{cycle_id}/{user_id}/send")
@@ -342,7 +338,7 @@ async def send_report(cycle_id: int, user_id: int, request: Request, db: Session
 
     pdf_bytes = generate_report_from_data(data)
     sent = await send_individual_report(
-        u.email, u.name, data["cycle"].name, pdf_bytes, _report_filename(u, cycle_id)
+        u.email, u.name, data["cycle"].name, pdf_bytes, report_filename(u.name, cycle_id)
     )
     url = f"/evaluations/reports/{cycle_id}/{user_id}"
     if sent:

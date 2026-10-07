@@ -6,7 +6,7 @@ import json
 from app.models.database import (
     User, Evaluation, EvaluationAnswer, Competency,
     CompetencyGroup, EvaluationCycle, EvaluationAssignment,
-    EvaluationStatus
+    EvaluationStatus, POSITIONS, DIRECTOR_POSITIONS
 )
 
 
@@ -52,36 +52,45 @@ def get_user_cycle_progress(db: Session, user_id: int, cycle_id: int) -> Dict:
     return {"total": total, "submitted": submitted, "pending": total - submitted, "pct": pct}
 
 
-def get_position_benchmark(db: Session, cycle_id: int, position: str) -> Optional[Dict]:
-    """Average results of everyone with the given position who was evaluated in the cycle.
+# Which position averages each person sees next to their own result
+EXTRA_REFERENCE_POSITIONS = {
+    "Coordenador de Projetos": ["Consultor de Projetos"],
+}
 
-    The overall figure is the mean of each person's overall average, so every
-    person weighs the same regardless of how many evaluations they received.
+
+def reference_positions_for(user: User) -> List[str]:
+    """Own position first; coordinators also see consultants; directors and Gestão see every position."""
+    own = [user.position] if user.position else []
+    if user.position in DIRECTOR_POSITIONS or user.department == "Gestao":
+        return own + [p for p in POSITIONS if p != user.position]
+    return own + EXTRA_REFERENCE_POSITIONS.get(user.position, [])
+
+
+def get_position_averages(db: Session, cycle_id: int,
+                          positions: Optional[List[str]] = None) -> Dict[str, Dict]:
+    """Average result per position among everyone evaluated in the cycle.
+
+    Each person's overall average counts once, regardless of how many evaluations
+    they received. Positions with nobody evaluated are left out.
     """
-    if not position:
-        return None
-    peers = (
+    query = (
         db.query(User)
         .join(Evaluation, Evaluation.evaluatee_id == User.id)
-        .filter(
-            Evaluation.cycle_id == cycle_id,
-            Evaluation.status == EvaluationStatus.submitted,
-            User.position == position,
-        )
-        .distinct()
-        .all()
+        .filter(Evaluation.cycle_id == cycle_id, Evaluation.status == EvaluationStatus.submitted)
     )
-    overall = []
-    for peer in peers:
-        data = aggregate_report_data(db, peer.id, cycle_id, include_benchmark=False)
-        if data["summary"]["overall"]["avg"] is not None:
-            overall.append(data["summary"]["overall"]["avg"])
-    if not overall:
-        return None
+    if positions is not None:
+        query = query.filter(User.position.in_(positions))
+    by_position: Dict[str, List[float]] = {}
+    for person in query.distinct().all():
+        data = aggregate_report_data(db, person.id, cycle_id, include_benchmark=False)
+        avg = data["summary"]["overall"]["avg"]
+        if avg is not None and person.position:
+            by_position.setdefault(person.position, []).append(avg)
+
+    order = {p: i for i, p in enumerate(POSITIONS)}
     return {
-        "position": position,
-        "count": len(overall),
-        "avg": sum(overall) / len(overall),
+        pos: {"position": pos, "count": len(v), "avg": sum(v) / len(v), "min": min(v), "max": max(v)}
+        for pos, v in sorted(by_position.items(), key=lambda kv: order.get(kv[0], len(order)))
     }
 
 
@@ -91,7 +100,7 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int,
     """Build full report data for one user in one cycle.
 
     Pass the same benchmark_cache dict when building many reports of a cycle so
-    each position's average is computed only once.
+    each position's average is computed only once (it maps position -> average or None).
     """
     evaluatee = db.query(User).get(evaluatee_id)
     cycle = db.query(EvaluationCycle).get(cycle_id)
@@ -180,14 +189,17 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int,
         })
     ev_details.sort(key=lambda e: (rel_order.get(e["relationship"], 9), e["evaluator_name"]))
 
-    benchmark = None
+    position_averages = []
     if include_benchmark:
-        if benchmark_cache is not None and evaluatee.position in benchmark_cache:
-            benchmark = benchmark_cache[evaluatee.position]
-        else:
-            benchmark = get_position_benchmark(db, cycle_id, evaluatee.position)
-            if benchmark_cache is not None:
-                benchmark_cache[evaluatee.position] = benchmark
+        wanted = reference_positions_for(evaluatee)
+        cache = benchmark_cache if benchmark_cache is not None else {}
+        missing = [p for p in wanted if p not in cache]
+        if missing:
+            computed = get_position_averages(db, cycle_id, missing)
+            for p in missing:
+                cache[p] = computed.get(p)
+        position_averages = [cache[p] for p in wanted if cache.get(p)]
+    benchmark = next((a for a in position_averages if a["position"] == evaluatee.position), None)
 
     return {
         "user": evaluatee,
@@ -196,4 +208,5 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int,
         "comp_scores": comp_scores,
         "evaluations": ev_details,
         "position_benchmark": benchmark,
+        "position_averages": position_averages,
     }
