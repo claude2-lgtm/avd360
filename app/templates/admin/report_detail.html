@@ -76,9 +76,6 @@
     <div style="text-align:right">
       <div style="font-size:40px;font-weight:700;line-height:1">{{ "%.2f"|format(data.summary.overall.avg) }}</div>
       <div style="font-size:12px;opacity:0.7">média geral</div>
-      {% if bench %}
-      <div style="font-size:12px;opacity:0.85;margin-top:6px">média do cargo: <strong>{{ "%.2f"|format(bench.avg) }}</strong></div>
-      {% endif %}
     </div>
     {% endif %}
   </div>
@@ -100,14 +97,7 @@
   <div class="stat-card">
     <div class="stat-label">Média do Cargo</div>
     <div class="stat-value" style="color:var(--text2)">{{ "%.2f"|format(bench.avg) }}</div>
-    <div class="stat-sub">{{ bench.position }} · {{ bench.count }} pessoa(s)
-      {% if data.summary.overall.avg %}
-      {% set diff = data.summary.overall.avg - bench.avg %}
-      <br><span style="font-weight:600;color:{% if diff >= 0 %}var(--green){% else %}var(--red){% endif %}">
-        {% if diff >= 0 %}+{% endif %}{{ "%.2f"|format(diff) }} {% if diff >= 0 %}acima{% else %}abaixo{% endif %} da média do cargo
-      </span>
-      {% endif %}
-    </div>
+    <div class="stat-sub">{{ bench.position }}</div>
   </div>
   {% endif %}
 </div>
@@ -115,10 +105,7 @@
 <!-- Competencies breakdown -->
 {% if data.comp_scores %}
 <div class="card mb-16" style="margin-bottom:20px">
-  <div class="card-title" style="margin-bottom:{% if bench %}4px{% else %}16px{% endif %}">Desempenho por Competência</div>
-  {% if bench %}
-  <div style="font-size:12px;color:var(--text3);margin-bottom:16px">O traço escuro na barra indica a média do cargo ({{ bench.position }}).</div>
-  {% endif %}
+  <div class="card-title" style="margin-bottom:16px">Desempenho por Competência</div>
   <div class="table-wrap">
     <table>
       <thead>
@@ -128,7 +115,6 @@
           <th style="text-align:center">Auto</th>
           <th style="text-align:center">Pares</th>
           <th style="text-align:center">Média</th>
-          {% if bench %}<th style="text-align:center">Média do cargo</th>{% endif %}
           <th>Barra</th>
         </tr>
       </thead>
@@ -153,18 +139,10 @@
             {% if s.avg and s.avg >= 4 %}var(--green){% elif s.avg and s.avg >= 3 %}var(--amber){% elif s.avg %}var(--red){% else %}var(--text3){% endif %}">
             {% if s.avg %}{{ "%.2f"|format(s.avg) }}{% else %}—{% endif %}
           </td>
-          {% if bench %}
-          <td style="text-align:center;font-size:13px;color:var(--text2)">
-            {% if s.position_avg %}{{ "%.2f"|format(s.position_avg) }}{% else %}<span class="text-muted">—</span>{% endif %}
-          </td>
-          {% endif %}
           <td style="min-width:120px">
             {% if s.avg %}
-            <div class="progress-bar" style="position:relative;overflow:visible">
+            <div class="progress-bar">
               <div style="height:6px;background:{% if s.avg >= 4 %}var(--green){% elif s.avg >= 3 %}var(--amber){% else %}var(--red){% endif %};border-radius:10px;width:{{ (s.avg/5*100)|int }}%"></div>
-              {% if s.position_avg %}
-              <div title="Média do cargo: {{ '%.2f'|format(s.position_avg) }}" style="position:absolute;top:-4px;left:{{ (s.position_avg/5*100)|int }}%;width:2px;height:14px;background:var(--text);border-radius:1px"></div>
-              {% endif %}
             </div>
             {% endif %}
           </td>

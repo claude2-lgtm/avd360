@@ -71,21 +71,17 @@ def get_position_benchmark(db: Session, cycle_id: int, position: str) -> Optiona
         .distinct()
         .all()
     )
-    overall, per_comp = [], {}
+    overall = []
     for peer in peers:
         data = aggregate_report_data(db, peer.id, cycle_id, include_benchmark=False)
         if data["summary"]["overall"]["avg"] is not None:
             overall.append(data["summary"]["overall"]["avg"])
-        for c in data["comp_scores"]:
-            if c["avg"] is not None:
-                per_comp.setdefault(c["id"], []).append(c["avg"])
     if not overall:
         return None
     return {
         "position": position,
         "count": len(overall),
         "avg": sum(overall) / len(overall),
-        "comp_avgs": {cid: sum(v) / len(v) for cid, v in per_comp.items()},
     }
 
 
@@ -192,9 +188,6 @@ def aggregate_report_data(db: Session, evaluatee_id: int, cycle_id: int,
             benchmark = get_position_benchmark(db, cycle_id, evaluatee.position)
             if benchmark_cache is not None:
                 benchmark_cache[evaluatee.position] = benchmark
-        if benchmark:
-            for c in comp_scores:
-                c["position_avg"] = benchmark["comp_avgs"].get(c["id"])
 
     return {
         "user": evaluatee,

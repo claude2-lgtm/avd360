@@ -123,7 +123,7 @@ def build_summary_scores(elements, styles, summary: Dict, benchmark: Optional[Di
         rows.append([
             Paragraph(f"Média do cargo<br/><font size='8' color='#666666'>{_esc(benchmark['position'])}</font>",
                       styles["cell_summary"]),
-            f"{benchmark['count']} pessoa(s)",
+            "",
             f"{benchmark['avg']:.2f}",
         ])
         style += [
@@ -196,11 +196,6 @@ def _competency_chart_drawing(comp_scores: List[Dict]) -> Drawing:
             d.add(Rect(bar_x, center - bh / 2, bw, bh, fillColor=PURPLE, strokeColor=None))
             d.add(String(bar_x + bw + 3, center - 3, f"{avg:.2f}", fontName="Helvetica-Bold",
                          fontSize=8, fillColor=TEXT_DARK))
-        pos_avg = s.get("position_avg")
-        if pos_avg is not None:
-            px = bar_x + bar_w * min(pos_avg, 5) / 5
-            th = min(row_h - 2, 6.5 * mm)
-            d.add(Line(px, center - th / 2, px, center + th / 2, strokeColor=TEXT_DARK, strokeWidth=1.6))
         else:
             d.add(String(bar_x + 3, center - 3, "sem nota", fontName=font, fontSize=7,
                          fillColor=colors.grey))
@@ -214,10 +209,7 @@ def build_competency_chart(elements, styles, comp_scores: List[Dict]):
 
     elements.append(Paragraph("Desempenho por Competência", styles["section_title"]))
     elements.append(HRFlowable(width="100%", thickness=1, color=PURPLE, spaceAfter=4 * mm))
-    caption = "Média de pontuação por competência (escala de 1 a 5)"
-    if any("position_avg" in s for s in comp_scores):
-        caption += " — barra roxa: sua média · traço preto: média do cargo"
-    elements.append(Paragraph(caption, styles["chart_caption"]))
+    elements.append(Paragraph("Média de pontuação por competência (escala de 1 a 5)", styles["chart_caption"]))
 
     # Split long lists so each drawing fits on a single page
     chunk = 18
@@ -227,23 +219,17 @@ def build_competency_chart(elements, styles, comp_scores: List[Dict]):
     elements.append(Spacer(1, 2 * mm))
 
     # Table detail
-    has_position = any("position_avg" in s for s in comp_scores)
-    rows = [["Competência", "Grupo", "Auto", "Pares", "Média"] + (["Cargo"] if has_position else [])]
+    rows = [["Competência", "Grupo", "Auto", "Pares", "Média"]]
     for s in comp_scores:
-        row = [
+        rows.append([
             Paragraph(_esc(s.get("name", "")), styles["cell"]),
             Paragraph(_esc(s.get("group", "")), styles["cell"]),
             f"{s['self']:.1f}" if s.get("self") else "—",
             f"{s['peers']:.1f}" if s.get("peers") else "—",
             f"{s['avg']:.2f}" if s.get("avg") else "—",
-        ]
-        if has_position:
-            row.append(f"{s['position_avg']:.2f}" if s.get("position_avg") else "—")
-        rows.append(row)
+        ])
 
-    widths = ([66 * mm, 42 * mm, 18 * mm, 18 * mm, 18 * mm, 18 * mm] if has_position
-              else [75 * mm, 45 * mm, 20 * mm, 20 * mm, 20 * mm])
-    t = Table(rows, colWidths=widths, repeatRows=1)
+    t = Table(rows, colWidths=[75 * mm, 45 * mm, 20 * mm, 20 * mm, 20 * mm], repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), PURPLE),
         ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
